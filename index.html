@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מעקב קלוריות</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; direction: rtl; }
+
+    /* ---------- Loading overlay ---------- */
+    #loadingOverlay {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,0.9);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; color: #2d6a4f; z-index: 100;
+    }
+
+    /* ---------- Auth screen ---------- */
+    #authScreen {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .auth-card {
+      background: white; border-radius: 16px;
+      padding: 32px 24px; width: 100%; max-width: 360px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .auth-card h1 { text-align: center; color: #2d6a4f; font-size: 1.5rem; margin-bottom: 4px; }
+    .auth-card p  { text-align: center; color: #888; font-size: 0.9rem; }
+    .auth-card input {
+      padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px;
+      font-size: 1rem; width: 100%; direction: ltr; text-align: left;
+    }
+    .auth-card input:focus { outline: none; border-color: #2d6a4f; }
+    .btn-signin {
+      background: #2d6a4f; color: white; border: none; border-radius: 8px;
+      padding: 13px; font-size: 1rem; cursor: pointer; font-weight: 700;
+    }
+    .btn-signup {
+      background: white; color: #2d6a4f; border: 2px solid #2d6a4f; border-radius: 8px;
+      padding: 11px; font-size: 1rem; cursor: pointer; font-weight: 700;
+    }
+    .btn-signin:active { background: #1b4332; }
+    .btn-signup:active { background: #e8f5e9; }
+    #authError   { color: #e53935; font-size: 0.88rem; text-align: center; min-height: 18px; }
+    #authSuccess { color: #2d6a4f; font-size: 0.88rem; text-align: center; min-height: 18px; }
+
+    /* ---------- App: header ---------- */
+    header { background: #2d6a4f; color: white; padding: 14px 20px 14px; }
+    .header-top {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    header h1 { font-size: 1.3rem; font-weight: 700; }
+    .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+    #userEmail { font-size: 0.72rem; opacity: 0.75; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .btn-logout {
+      background: rgba(255,255,255,0.18); color: white;
+      border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
+      padding: 4px 10px; font-size: 0.8rem; cursor: pointer;
+    }
+    .target-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .target-row label { font-size: 0.95rem; }
+    .target-row input { width: 80px; padding: 6px 8px; font-size: 1rem; border: none; border-radius: 6px; text-align: center; }
+
+    /* ---------- Summary bar ---------- */
+    .summary-bar {
+      background: #1b4332; color: white;
+      display: flex; justify-content: space-around;
+      padding: 10px 20px; font-size: 0.95rem; flex-wrap: wrap; gap: 6px;
+    }
+    .summary-bar span { font-weight: 600; }
+    .summary-bar .remaining.negative { color: #f28b82; }
+
+    /* ---------- Main content ---------- */
+    main { max-width: 600px; margin: 0 auto; padding: 16px 12px 100px; }
+    section {
+      background: white; border-radius: 12px; padding: 16px;
+      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    section h2 {
+      font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;
+      color: #2d6a4f; border-bottom: 2px solid #e8f5e9; padding-bottom: 8px;
+    }
+
+    /* ---------- Food rows ---------- */
+    .food-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; }
+    .food-item:last-child { border-bottom: none; }
+    .food-item input[type="checkbox"] { width: 26px; height: 26px; accent-color: #2d6a4f; cursor: pointer; flex-shrink: 0; }
+    .food-item .name { flex: 1; font-size: 0.95rem; }
+    .food-item .cal-badge { font-size: 0.82rem; color: #666; white-space: nowrap; }
+    .food-item input[type="number"] { width: 62px; padding: 5px 4px; font-size: 0.95rem; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
+    .food-item input[type="number"]:focus { outline: none; border-color: #2d6a4f; }
+    .food-item.unchecked .name,
+    .food-item.unchecked .cal-badge { opacity: 0.45; }
+
+    /* ---------- Custom item form ---------- */
+    .custom-form { display: flex; flex-direction: column; gap: 10px; }
+    .custom-form input[type="text"],
+    .custom-form input[type="number"] {
+      padding: 10px 12px; font-size: 1rem;
+      border: 1px solid #ccc; border-radius: 8px; width: 100%; direction: rtl;
+    }
+    .custom-form input:focus { outline: none; border-color: #2d6a4f; }
+    .btn-add { background: #2d6a4f; color: white; border: none; border-radius: 8px; padding: 11px; font-size: 1rem; cursor: pointer; font-weight: 600; }
+    .btn-add:active { background: #1b4332; }
+
+    /* ---------- Reset button ---------- */
+    .btn-reset {
+      display: block; width: 100%; background: #e53935; color: white;
+      border: none; border-radius: 10px; padding: 14px;
+      font-size: 1.05rem; cursor: pointer; font-weight: 700; margin-top: 4px;
+    }
+    .btn-reset:active { background: #b71c1c; }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay (shown while checking session / fetching data) -->
+<div id="loadingOverlay">טוען...</div>
+
+<!-- ==================== AUTH SCREEN ==================== -->
+<div id="authScreen" style="display:none">
+  <div class="auth-card">
+    <h1>מעקב קלוריות</h1>
+    <p>התחבר כדי לשמור את הנתונים שלך</p>
+    <input type="email"    id="emailInput"    placeholder="אימייל"  autocomplete="email" />
+    <input type="password" id="passwordInput" placeholder="סיסמה" autocomplete="current-password" />
+    <div id="authError"></div>
+    <div id="authSuccess"></div>
+    <button class="btn-signin" onclick="signIn()">התחברות</button>
+    <button class="btn-signup" onclick="signUp()">הרשמה</button>
+  </div>
+</div>
+
+<!-- ==================== APP SCREEN ==================== -->
+<div id="appScreen" style="display:none">
+
+  <header>
+    <div class="header-top">
+      <h1>קלוריות יומי</h1>
+      <div class="header-right">
+        <span id="userEmail"></span>
+        <button class="btn-logout" onclick="signOut()">התנתקות</button>
+      </div>
+    </div>
+    <div class="target-row">
+      <label for="targetInput">יעד קלוריות יומי:</label>
+      <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" />
+    </div>
+  </header>
+
+  <div class="summary-bar">
+    <div>סך קלוריות היום: <span id="totalDisplay">0</span></div>
+    <div>נשארו: <span id="remainingDisplay" class="remaining">2300</span> קלוריות</div>
+  </div>
+
+  <main>
+    <section>
+      <h2>רשימת מזון</h2>
+      <div id="foodList"></div>
+    </section>
+
+    <section>
+      <h2>הוספת פריט מותאם</h2>
+      <div class="custom-form">
+        <input type="text"   id="customName" placeholder="שם הפריט" />
+        <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
+        <button class="btn-add" onclick="addCustomItem()">הוסף</button>
+      </div>
+    </section>
+
+    <section>
+      <button class="btn-reset" onclick="resetDay()">אפס יום</button>
+    </section>
+  </main>
+
+</div>
+
+<!-- Supabase JS (loaded from CDN — no install needed) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="config.js"></script>
+<script>
+
+  // ─── Init Supabase ───────────────────────────────────────────
+  if (!window.supabase) {
+    document.getElementById('loadingOverlay').textContent = 'שגיאה: לא ניתן לטעון את Supabase. בדוק חיבור לאינטרנט.';
+    throw new Error('Supabase CDN not loaded');
+  }
+  const { createClient } = window.supabase;
+  const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  let currentUser  = null;
+  let todayEntries = {};   // { food_name: entry_row }
+  let debounceTimers  = {};
+  let targetSaveTimer = null;
+
+  // ─── Predefined food list ────────────────────────────────────
+  const foods = [
+    { name: "3 ביצים",              cal: 210 },
+    { name: "לחמניה",               cal: 180 },
+    { name: "בננה",                 cal: 100 },
+    { name: "קופסאת קוטג",          cal: 230 },
+    { name: "תפוח",                 cal: 100 },
+    { name: "300 גרם חזה עוף",      cal: 500 },
+    { name: "200 גרם קציצות בקר",   cal: 500 },
+    { name: "200 גרם אורז",         cal: 260 },
+    { name: "170 גרם פסטה",         cal: 260 },
+    { name: "כף קטשופ",             cal: 20  },
+    { name: "מעדן חלבון",           cal: 120 },
+    { name: "100 גרם דג",           cal: 125 },
+    { name: "חצי בתנור",            cal: 50  },
+    { name: "שניצל מאמא עוף",       cal: 240 },
+    { name: "פרוסת לזניה",          cal: 320 },
+    { name: "קופסת טונה במים",       cal: 120 },
+    { name: "קופסת טונה בשמן",       cal: 220 },
+    { name: "קערה קורנפלקס דודיק",   cal: 350 },
+  ];
+
+  // ─── Helpers ─────────────────────────────────────────────────
+  function getToday() {
+    return new Date().toISOString().split('T')[0]; // "2026-03-16"
+  }
+
+  function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
+  function hideLoading()  { document.getElementById('loadingOverlay').style.display = 'none';  }
+
+  function showAuth() {
+    document.getElementById('authScreen').style.display = 'flex';
+    document.getElementById('appScreen').style.display  = 'none';
+    hideLoading();
+  }
+
+  function showApp() {
+    document.getElementById('authScreen').style.display = 'none';
+    document.getElementById('appScreen').style.display  = 'block';
+    document.getElementById('userEmail').textContent = currentUser.email;
+    hideLoading();
+  }
+
+  // ─── Auth ────────────────────────────────────────────────────
+  function clearAuthMessages() {
+    document.getElementById('authError').textContent   = '';
+    document.getElementById('authSuccess').textContent = '';
+  }
+
+  async function signUp() {
+    clearAuthMessages();
+    const email    = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const { error } = await db.auth.signUp({ email, password });
+    if (error) {
+      document.getElementById('authError').textContent = error.message;
+    } else {
+      document.getElementById('authSuccess').textContent = 'נשלח מייל אישור — אשר ואז התחבר.';
+    }
+  }
+
+  async function signIn() {
+    clearAuthMessages();
+    const email    = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const { error } = await db.auth.signInWithPassword({ email, password });
+    if (error) {
+      document.getElementById('authError').textContent = error.message;
+    }
+    // on success: onAuthStateChange fires automatically and loads the app
+  }
+
+  async function signOut() {
+    await db.auth.signOut();
+    // onAuthStateChange fires and shows auth screen
+  }
+
+  // ─── Profile (calorie target) ─────────────────────────────────
+  async function loadProfile() {
+    const { data } = await db
+      .from('profiles')
+      .select('daily_calorie_target')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (data) {
+      document.getElementById('targetInput').value = data.daily_calorie_target;
+    } else {
+      // First login — create the profile
+      await db.from('profiles').insert({ id: currentUser.id, daily_calorie_target: 2300 });
+      document.getElementById('targetInput').value = 2300;
+    }
+  }
+
+  function onTargetChange() {
+    updateTotal();
+    clearTimeout(targetSaveTimer);
+    targetSaveTimer = setTimeout(async () => {
+      const val = parseInt(document.getElementById('targetInput').value) || 2300;
+      await db.from('profiles').upsert({ id: currentUser.id, daily_calorie_target: val });
+    }, 800);
+  }
+
+  // ─── Daily entries ────────────────────────────────────────────
+  async function loadTodayEntries() {
+    const { data } = await db
+      .from('daily_food_entries')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('date', getToday());
+
+    todayEntries = {};
+    if (data) {
+      data.forEach(entry => { todayEntries[entry.food_name] = entry; });
+    }
+  }
+
+  // Save (insert or update) one entry
+  async function upsertEntry(foodName, calPerUnit, qty) {
+    await db.from('daily_food_entries').upsert(
+      {
+        user_id:          currentUser.id,
+        date:             getToday(),
+        food_name:        foodName,
+        calories_per_unit: Math.round(calPerUnit),
+        quantity:          qty,
+      },
+      { onConflict: 'user_id,date,food_name' }
+    );
+  }
+
+  // Remove one entry (item unchecked)
+  async function deleteEntry(foodName) {
+    await db.from('daily_food_entries')
+      .delete()
+      .eq('user_id',   currentUser.id)
+      .eq('date',      getToday())
+      .eq('food_name', foodName);
+  }
+
+  // Reset day — delete all of today's entries
+  async function resetDay() {
+    if (!confirm('למחוק את כל הרשומות של היום?')) return;
+    await db.from('daily_food_entries')
+      .delete()
+      .eq('user_id', currentUser.id)
+      .eq('date',    getToday());
+
+    getAllRows().forEach(row => {
+      if (row._cb)  { row._cb.checked = false; row.classList.add('unchecked'); }
+      if (row._qty) row._qty.value = 1;
+    });
+    updateTotal();
+  }
+
+  // ─── Build the food list ──────────────────────────────────────
+  function buildList() {
+    const container = document.getElementById('foodList');
+    container.innerHTML = '';
+
+    // Predefined items
+    foods.forEach((food, index) => {
+      const saved = todayEntries[food.name];
+      container.appendChild(createFoodRow(food, index, saved));
+    });
+
+    // Custom items stored in DB (not in the predefined list)
+    const predefined = new Set(foods.map(f => f.name));
+    Object.values(todayEntries).forEach(entry => {
+      if (!predefined.has(entry.food_name)) {
+        const food = { name: entry.food_name, cal: entry.calories_per_unit };
+        container.appendChild(createFoodRow(food, 'c_' + entry.id, entry));
+      }
+    });
+
+    updateTotal();
+  }
+
+  function createFoodRow(food, index, savedEntry) {
+    const row = document.createElement('div');
+    row.className = 'food-item' + (savedEntry ? '' : ' unchecked');
+
+    // Checkbox
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.id      = 'cb_' + index;
+    cb.checked = !!savedEntry;
+
+    // Label (food name)
+    const label = document.createElement('label');
+    label.htmlFor   = 'cb_' + index;
+    label.className = 'name';
+    label.textContent = food.name;
+
+    // Calorie badge
+    const badge = document.createElement('span');
+    badge.className   = 'cal-badge';
+    badge.textContent = food.cal + ' קל׳';
+
+    // Quantity input
+    const qty = document.createElement('input');
+    qty.type  = 'number';
+    qty.value = savedEntry ? savedEntry.quantity : 1;
+    qty.min   = 0.1;
+    qty.max   = 99;
+    qty.step  = 1;
+
+    // When checkbox toggles: save or delete from DB
+    cb.addEventListener('change', async () => {
+      row.classList.toggle('unchecked', !cb.checked);
+      const q = parseFloat(qty.value) || 1;
+      if (cb.checked) {
+        await upsertEntry(food.name, food.cal, q);
+      } else {
+        await deleteEntry(food.name);
+      }
+      updateTotal();
+    });
+
+    // When quantity changes: update total immediately, save to DB after short delay
+    qty.addEventListener('input', () => {
+      updateTotal();
+      if (cb.checked) {
+        clearTimeout(debounceTimers[food.name]);
+        debounceTimers[food.name] = setTimeout(async () => {
+          const q = parseFloat(qty.value) || 1;
+          await upsertEntry(food.name, food.cal, q);
+        }, 600);
+      }
+    });
+
+    row.appendChild(cb);
+    row.appendChild(label);
+    row.appendChild(badge);
+    row.appendChild(qty);
+
+    // Store refs for updateTotal and resetDay
+    row._cb  = cb;
+    row._qty = qty;
+    row._cal = food.cal;
+
+    return row;
+  }
+
+  // ─── Custom item ──────────────────────────────────────────────
+  function addCustomItem() {
+    const nameEl = document.getElementById('customName');
+    const calEl  = document.getElementById('customCal');
+    const name   = nameEl.value.trim();
+    const cal    = parseInt(calEl.value);
+
+    if (!name || isNaN(cal) || cal < 0) {
+      alert('נא למלא שם ומספר קלוריות תקין.');
+      return;
+    }
+
+    const row = createFoodRow({ name, cal }, 'custom_' + Date.now(), null);
+    document.getElementById('foodList').appendChild(row);
+
+    nameEl.value = '';
+    calEl.value  = '';
+  }
+
+  // ─── Total calculation ────────────────────────────────────────
+  function getAllRows() {
+    return Array.from(document.querySelectorAll('.food-item'));
+  }
+
+  function updateTotal() {
+    let total = 0;
+    getAllRows().forEach(row => {
+      if (row._cb && row._cb.checked) {
+        total += row._cal * (parseFloat(row._qty.value) || 1);
+      }
+    });
+
+    const target    = parseInt(document.getElementById('targetInput').value) || 0;
+    const remaining = target - total;
+
+    document.getElementById('totalDisplay').textContent = Math.round(total);
+    const remEl = document.getElementById('remainingDisplay');
+    remEl.textContent = Math.round(remaining);
+    remEl.classList.toggle('negative', remaining < 0);
+  }
+
+  // ─── Init: check session immediately on page load ────────────
+  async function init() {
+    try {
+      const { data: { session } } = await db.auth.getSession();
+      if (session) {
+        currentUser = session.user;
+        await loadProfile();
+        await loadTodayEntries();
+        buildList();
+        showApp();
+      } else {
+        showAuth();
+      }
+    } catch (err) {
+      console.error('Init error:', err);
+      showAuth();
+    }
+
+    // Listen for login / logout events after the initial load
+    db.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session && !currentUser) {
+        currentUser = session.user;
+        showLoading();
+        await loadProfile();
+        await loadTodayEntries();
+        buildList();
+        showApp();
+      } else if (event === 'SIGNED_OUT') {
+        currentUser  = null;
+        todayEntries = {};
+        showAuth();
+      }
+    });
+  }
+
+  init();
+
+</script>
+</body>
+</html>
