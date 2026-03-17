@@ -66,6 +66,14 @@
     .target-row label { font-size: 0.95rem; }
     .target-row input { width: 80px; padding: 6px 8px; font-size: 1rem; border: none; border-radius: 6px; text-align: center; }
 
+    /* ---------- Active day bar ---------- */
+    .active-day-bar {
+      background: #40916c; color: white;
+      text-align: center; padding: 7px 20px;
+      font-size: 0.92rem; letter-spacing: 0.01em;
+    }
+    .active-day-bar span { font-weight: 700; }
+
     /* ---------- Summary bar ---------- */
     .summary-bar {
       background: #1b4332; color: white;
@@ -108,18 +116,39 @@
     .btn-add { background: #2d6a4f; color: white; border: none; border-radius: 8px; padding: 11px; font-size: 1rem; cursor: pointer; font-weight: 600; }
     .btn-add:active { background: #1b4332; }
 
-    /* ---------- Reset button ---------- */
-    .btn-reset {
-      display: block; width: 100%; background: #e53935; color: white;
+    /* ---------- Action buttons ---------- */
+    .actions-section { display: flex; flex-direction: column; gap: 10px; }
+
+    .btn-save {
+      display: block; width: 100%;
+      background: #2d6a4f; color: white;
       border: none; border-radius: 10px; padding: 14px;
-      font-size: 1.05rem; cursor: pointer; font-weight: 700; margin-top: 4px;
+      font-size: 1.05rem; cursor: pointer; font-weight: 700;
     }
-    .btn-reset:active { background: #b71c1c; }
+    .btn-save:disabled { opacity: 0.6; cursor: default; }
+    .btn-save:not(:disabled):active { background: #1b4332; }
+
+    .btn-finalize {
+      display: block; width: 100%;
+      background: #1565c0; color: white;
+      border: none; border-radius: 10px; padding: 14px;
+      font-size: 1rem; cursor: pointer; font-weight: 700; line-height: 1.4;
+    }
+    .btn-finalize:disabled { opacity: 0.6; cursor: default; }
+    .btn-finalize:not(:disabled):active { background: #0d47a1; }
+
+    .btn-reset {
+      display: block; width: 100%;
+      background: white; color: #e53935;
+      border: 2px solid #e53935; border-radius: 10px; padding: 12px;
+      font-size: 0.95rem; cursor: pointer; font-weight: 700;
+    }
+    .btn-reset:active { background: #fdecea; }
   </style>
 </head>
 <body>
 
-<!-- Loading overlay (shown while checking session / fetching data) -->
+<!-- Loading overlay -->
 <div id="loadingOverlay">טוען...</div>
 
 <!-- ==================== AUTH SCREEN ==================== -->
@@ -153,6 +182,11 @@
     </div>
   </header>
 
+  <!-- Active tracking day indicator -->
+  <div class="active-day-bar">
+    התאריך הפעיל: <span id="activeDateDisplay">—</span>
+  </div>
+
   <div class="summary-bar">
     <div>סך קלוריות היום: <span id="totalDisplay">0</span></div>
     <div>נשארו: <span id="remainingDisplay" class="remaining">2300</span> קלוריות</div>
@@ -174,13 +208,16 @@
     </section>
 
     <section>
-      <button class="btn-reset" onclick="resetDay()">אפס יום</button>
+      <div class="actions-section">
+        <button id="btnSave"     class="btn-save"     onclick="saveProgress()">שמור</button>
+        <button id="btnFinalize" class="btn-finalize" onclick="finalizeDay()">סיימתי להיום, עבור ליום הבא</button>
+        <button                  class="btn-reset"    onclick="resetDay()">אפס יום</button>
+      </div>
     </section>
   </main>
 
 </div>
 
-<!-- Supabase JS (loaded from CDN — no install needed) -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="config.js"></script>
 <script>
@@ -193,10 +230,11 @@
   const { createClient } = window.supabase;
   const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let currentUser  = null;
-  let todayEntries = {};   // { food_name: entry_row }
-  let debounceTimers  = {};
-  let targetSaveTimer = null;
+  let currentUser       = null;
+  let activeTrackingDate = null;   // loaded from user_tracking_state
+  let todayEntries      = {};      // { food_name: entry_row }
+  let debounceTimers    = {};
+  let targetSaveTimer   = null;
 
   // ─── Predefined food list ────────────────────────────────────
   const foods = [
@@ -220,11 +258,31 @@
     { name: "קערה קורנפלקס דודיק",   cal: 350 },
   ];
 
-  // ─── Helpers ─────────────────────────────────────────────────
-  function getToday() {
-    return new Date().toISOString().split('T')[0]; // "2026-03-16"
+  // ─── Date helpers ─────────────────────────────────────────────
+  function getRealToday() {
+    // Real calendar date — used ONLY when initializing a brand-new user
+    return new Date().toISOString().split('T')[0];
   }
 
+  function formatDateHebrew(dateStr) {
+    // "2026-03-17" → "17/03/2026"
+    const [y, m, d] = dateStr.split('-');
+    return `${d}/${m}/${y}`;
+  }
+
+  function addOneDay(dateStr) {
+    // Advance by exactly one day, timezone-safe
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().split('T')[0];
+  }
+
+  function updateActiveDateDisplay() {
+    document.getElementById('activeDateDisplay').textContent =
+      activeTrackingDate ? formatDateHebrew(activeTrackingDate) : '—';
+  }
+
+  // ─── Screen management ────────────────────────────────────────
   function showLoading() { document.getElementById('loadingOverlay').style.display = 'flex'; }
   function hideLoading()  { document.getElementById('loadingOverlay').style.display = 'none';  }
 
@@ -267,12 +325,10 @@
     if (error) {
       document.getElementById('authError').textContent = error.message;
     }
-    // on success: onAuthStateChange fires automatically and loads the app
   }
 
   async function signOut() {
     await db.auth.signOut();
-    // onAuthStateChange fires and shows auth screen
   }
 
   // ─── Profile (calorie target) ─────────────────────────────────
@@ -286,7 +342,6 @@
     if (data) {
       document.getElementById('targetInput').value = data.daily_calorie_target;
     } else {
-      // First login — create the profile
       await db.from('profiles').insert({ id: currentUser.id, daily_calorie_target: 2300 });
       document.getElementById('targetInput').value = 2300;
     }
@@ -301,13 +356,35 @@
     }, 800);
   }
 
-  // ─── Daily entries ────────────────────────────────────────────
+  // ─── Tracking state (active day) ──────────────────────────────
+  async function loadTrackingState() {
+    const { data } = await db
+      .from('user_tracking_state')
+      .select('current_tracking_date')
+      .eq('user_id', currentUser.id)
+      .single();
+
+    if (data) {
+      activeTrackingDate = data.current_tracking_date;
+    } else {
+      // Brand-new user: their first active day is today's real date
+      activeTrackingDate = getRealToday();
+      await db.from('user_tracking_state').insert({
+        user_id:               currentUser.id,
+        current_tracking_date: activeTrackingDate,
+      });
+    }
+
+    updateActiveDateDisplay();
+  }
+
+  // ─── Daily food entries ───────────────────────────────────────
   async function loadTodayEntries() {
     const { data } = await db
       .from('daily_food_entries')
       .select('*')
       .eq('user_id', currentUser.id)
-      .eq('date', getToday());
+      .eq('date',    activeTrackingDate);   // ← active day, not clock
 
     todayEntries = {};
     if (data) {
@@ -315,13 +392,12 @@
     }
   }
 
-  // Save (insert or update) one entry
   async function upsertEntry(foodName, calPerUnit, qty) {
     await db.from('daily_food_entries').upsert(
       {
-        user_id:          currentUser.id,
-        date:             getToday(),
-        food_name:        foodName,
+        user_id:           currentUser.id,
+        date:              activeTrackingDate,   // ← active day
+        food_name:         foodName,
         calories_per_unit: Math.round(calPerUnit),
         quantity:          qty,
       },
@@ -329,22 +405,73 @@
     );
   }
 
-  // Remove one entry (item unchecked)
   async function deleteEntry(foodName) {
     await db.from('daily_food_entries')
       .delete()
       .eq('user_id',   currentUser.id)
-      .eq('date',      getToday())
+      .eq('date',      activeTrackingDate)   // ← active day
       .eq('food_name', foodName);
   }
 
-  // Reset day — delete all of today's entries
+  // ─── Save / Finalize / Reset ──────────────────────────────────
+
+  // "שמור" — data is already auto-saved on every change;
+  // this button gives the user explicit visual confirmation.
+  async function saveProgress() {
+    const btn = document.getElementById('btnSave');
+    btn.disabled    = true;
+    btn.textContent = 'נשמר ✓';
+    setTimeout(() => {
+      btn.disabled    = false;
+      btn.textContent = 'שמור';
+    }, 2000);
+  }
+
+  // "סיימתי להיום, עבור ליום הבא"
+  async function finalizeDay() {
+    if (!confirm('לסיים את היום ולעבור ליום הבא?')) return;
+
+    const btn = document.getElementById('btnFinalize');
+    btn.disabled = true;
+
+    const total = getCurrentTotal();
+
+    // 1. Save final summary for this day
+    await db.from('daily_summaries').upsert(
+      {
+        user_id:       currentUser.id,
+        tracking_date: activeTrackingDate,
+        total_calories: total,
+        status:        'completed',
+      },
+      { onConflict: 'user_id,tracking_date' }
+    );
+
+    // 2. Advance the active tracking date by exactly one day
+    activeTrackingDate = addOneDay(activeTrackingDate);
+    await db.from('user_tracking_state').upsert({
+      user_id:               currentUser.id,
+      current_tracking_date: activeTrackingDate,
+    });
+
+    updateActiveDateDisplay();
+
+    // 3. Reload the food list for the new (empty) day
+    todayEntries = {};
+    buildList();
+    updateTotal();
+
+    btn.disabled = false;
+  }
+
+  // "אפס יום" — clears all food entries for the active day
   async function resetDay() {
-    if (!confirm('למחוק את כל הרשומות של היום?')) return;
+    if (!confirm('למחוק את כל הרשומות של היום הפעיל?')) return;
+
     await db.from('daily_food_entries')
       .delete()
       .eq('user_id', currentUser.id)
-      .eq('date',    getToday());
+      .eq('date',    activeTrackingDate);   // ← active day
 
     getAllRows().forEach(row => {
       if (row._cb)  { row._cb.checked = false; row.classList.add('unchecked'); }
@@ -358,13 +485,12 @@
     const container = document.getElementById('foodList');
     container.innerHTML = '';
 
-    // Predefined items
     foods.forEach((food, index) => {
       const saved = todayEntries[food.name];
       container.appendChild(createFoodRow(food, index, saved));
     });
 
-    // Custom items stored in DB (not in the predefined list)
+    // Custom items from DB that are not in the predefined list
     const predefined = new Set(foods.map(f => f.name));
     Object.values(todayEntries).forEach(entry => {
       if (!predefined.has(entry.food_name)) {
@@ -380,24 +506,20 @@
     const row = document.createElement('div');
     row.className = 'food-item' + (savedEntry ? '' : ' unchecked');
 
-    // Checkbox
     const cb = document.createElement('input');
     cb.type    = 'checkbox';
     cb.id      = 'cb_' + index;
     cb.checked = !!savedEntry;
 
-    // Label (food name)
     const label = document.createElement('label');
-    label.htmlFor   = 'cb_' + index;
-    label.className = 'name';
+    label.htmlFor     = 'cb_' + index;
+    label.className   = 'name';
     label.textContent = food.name;
 
-    // Calorie badge
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
     badge.textContent = food.cal + ' קל׳';
 
-    // Quantity input
     const qty = document.createElement('input');
     qty.type  = 'number';
     qty.value = savedEntry ? savedEntry.quantity : 1;
@@ -405,7 +527,6 @@
     qty.max   = 99;
     qty.step  = 1;
 
-    // When checkbox toggles: save or delete from DB
     cb.addEventListener('change', async () => {
       row.classList.toggle('unchecked', !cb.checked);
       const q = parseFloat(qty.value) || 1;
@@ -417,7 +538,6 @@
       updateTotal();
     });
 
-    // When quantity changes: update total immediately, save to DB after short delay
     qty.addEventListener('input', () => {
       updateTotal();
       if (cb.checked) {
@@ -434,7 +554,6 @@
     row.appendChild(badge);
     row.appendChild(qty);
 
-    // Store refs for updateTotal and resetDay
     row._cb  = cb;
     row._qty = qty;
     row._cal = food.cal;
@@ -466,33 +585,42 @@
     return Array.from(document.querySelectorAll('.food-item'));
   }
 
-  function updateTotal() {
+  function getCurrentTotal() {
     let total = 0;
     getAllRows().forEach(row => {
       if (row._cb && row._cb.checked) {
         total += row._cal * (parseFloat(row._qty.value) || 1);
       }
     });
+    return Math.round(total);
+  }
 
+  function updateTotal() {
+    const total     = getCurrentTotal();
     const target    = parseInt(document.getElementById('targetInput').value) || 0;
     const remaining = target - total;
 
-    document.getElementById('totalDisplay').textContent = Math.round(total);
+    document.getElementById('totalDisplay').textContent = total;
     const remEl = document.getElementById('remainingDisplay');
     remEl.textContent = Math.round(remaining);
     remEl.classList.toggle('negative', remaining < 0);
   }
 
-  // ─── Init: check session immediately on page load ────────────
+  // ─── App init ─────────────────────────────────────────────────
+  async function loadAndShowApp() {
+    await loadProfile();
+    await loadTrackingState();    // sets activeTrackingDate
+    await loadTodayEntries();     // uses activeTrackingDate
+    buildList();
+    showApp();
+  }
+
   async function init() {
     try {
       const { data: { session } } = await db.auth.getSession();
       if (session) {
         currentUser = session.user;
-        await loadProfile();
-        await loadTodayEntries();
-        buildList();
-        showApp();
+        await loadAndShowApp();
       } else {
         showAuth();
       }
@@ -501,18 +629,15 @@
       showAuth();
     }
 
-    // Listen for login / logout events after the initial load
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session && !currentUser) {
         currentUser = session.user;
         showLoading();
-        await loadProfile();
-        await loadTodayEntries();
-        buildList();
-        showApp();
+        await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
-        currentUser  = null;
-        todayEntries = {};
+        currentUser        = null;
+        activeTrackingDate = null;
+        todayEntries       = {};
         showAuth();
       }
     });
