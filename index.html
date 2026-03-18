@@ -323,14 +323,15 @@
 
   // ─── Unsaved changes detection ────────────────────────────────
   function getCurrentUIState() {
-    // Returns a JSON string of { food_name: quantity } for checked items only
-    const state = {};
+    // Collect checked items, sort by name, then stringify — fully order-independent
+    const entries = [];
     getAllRows().forEach(row => {
       if (row._cb && row._cb.checked && row._name) {
-        state[row._name] = parseFloat(row._qty.value) || 1;
+        entries.push([row._name, parseFloat(row._qty.value) || 1]);
       }
     });
-    return JSON.stringify(state);
+    entries.sort((a, b) => a[0].localeCompare(b[0]));
+    return JSON.stringify(entries);
   }
 
   function updateSnapshot() {
