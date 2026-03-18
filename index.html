@@ -203,8 +203,8 @@
       </div>
     </div>
     <div class="target-row">
-      <label for="targetInput">סף קלורי יומי:</label>
-      <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" />
+      <label>מאזן קלורי:</label>
+      <span id="remainingDisplay" class="remaining" style="font-size:1rem;font-weight:700;">2300</span>
     </div>
   </header>
 
@@ -217,7 +217,7 @@
 
   <div class="summary-bar">
     <div>צריכת קלוריות יומית: <span id="totalDisplay">0</span></div>
-    <div>מאזן קלורי: <span id="remainingDisplay" class="remaining">2300</span></div>
+    <div>סף קלורי יומי: <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" style="width:70px;padding:3px 6px;font-size:0.95rem;border:none;border-radius:6px;text-align:center;" /></div>
   </div>
 
   <main>
