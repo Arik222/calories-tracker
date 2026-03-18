@@ -641,8 +641,8 @@
 
     updateActiveDateDisplay();
 
-    // 5. Reload the food list for the new (empty) day
-    todayEntries = {};
+    // 5. Load whatever data exists for the new date (may be empty, may not)
+    await loadTodayEntries();
     buildList();
     updateTotal();
 
