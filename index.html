@@ -55,9 +55,15 @@
       margin-bottom: 12px; position: relative;
     }
     header h1 {
-      font-size: 1.3rem; font-weight: 700;
+      font-size: 1.5rem; font-weight: 800;
       position: absolute; left: 50%; transform: translateX(-50%);
       white-space: nowrap; pointer-events: none;
+      background: linear-gradient(135deg, #ffffff 0%, #95d5b2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      filter: drop-shadow(0 1px 4px rgba(0,0,0,0.35));
+      letter-spacing: 0.4px;
     }
     .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
     #userEmail { font-size: 0.72rem; opacity: 0.75; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
