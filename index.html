@@ -469,17 +469,8 @@
     const btn = document.getElementById('btnFinalize');
     btn.disabled = true;
 
-    // 1. Upsert only checked items — never delete on finalize.
-    //    Finalize is a historical record: it saves what was eaten and moves on.
-    //    Deleting unchecked items is only for שמור (partial saves during the day).
-    const ops = [];
-    for (const row of getAllRows()) {
-      if (row._cb && row._cb.checked && row._name) {
-        const q = parseFloat(row._qty.value) || 1;
-        ops.push(upsertEntry(row._name, row._cal, q));
-      }
-    }
-    await Promise.all(ops);
+    // 1. Same save as "שמור": upsert checked items, delete unchecked ones from DB
+    await saveAllRows();
 
     const total = getCurrentTotal();
 
