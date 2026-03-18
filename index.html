@@ -789,18 +789,12 @@
   }
 
   // ─── Delete a single item from the active day ─────────────────
-  async function deleteItem(row, foodName, isCustom) {
+  async function deleteItem(row, foodName) {
     if (todayEntries[foodName]) {
       await deleteEntry(foodName);
       delete todayEntries[foodName];
     }
-    if (isCustom) {
-      row.remove();
-    } else {
-      // Predefined items stay in the list, just unchecked
-      row._cb.checked = false;
-      row.classList.add('unchecked');
-    }
+    row.remove();
     updateTotal();
     updateSnapshot();
   }
@@ -853,8 +847,6 @@
     qty.max   = 99;
     qty.step  = 1;
 
-    const isCustom = typeof index === 'string' && (index.startsWith('c_') || index.startsWith('custom_'));
-
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn-delete-item';
     delBtn.textContent = '×';
@@ -869,7 +861,7 @@
       updateTotal();
     });
 
-    delBtn.addEventListener('click', () => deleteItem(row, food.name, isCustom));
+    delBtn.addEventListener('click', () => deleteItem(row, food.name));
 
     row.appendChild(cb);
     row.appendChild(label);
