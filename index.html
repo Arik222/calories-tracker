@@ -287,9 +287,14 @@
 
   <main>
     <section>
-      <h2>רשימת מזון</h2>
+      <h2>רשימת ברירת מחדל</h2>
       <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
-      <div id="foodList"></div>
+      <div id="defaultFoodList"></div>
+    </section>
+
+    <section id="customFoodsSection" style="display:none">
+      <h2>המוצרים שלי</h2>
+      <div id="customFoodList"></div>
     </section>
 
     <section>
@@ -297,7 +302,7 @@
       <div class="custom-form">
         <input type="text"   id="customName" placeholder="שם הפריט" />
         <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
-        <button class="btn-add" onclick="addCustomItem()">הוסף</button>
+        <button id="btnAddCustom" class="btn-add" onclick="addCustomItem()">הוסף</button>
       </div>
     </section>
 
@@ -410,6 +415,7 @@
   let currentUser        = null;
   let activeTrackingDate = null;   // loaded from user_tracking_state
   let todayEntries       = {};     // { food_name: entry_row }
+  let customFoods        = [];     // permanent custom foods from user_custom_foods table
   let targetSaveTimer    = null;
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
   let modalResolve         = null;  // resolves the date-switch unsaved modal
@@ -637,6 +643,16 @@
     }
 
     updateActiveDateDisplay();
+  }
+
+  // ─── User custom foods (permanent list) ─────────────────────────
+  async function loadCustomFoods() {
+    const { data } = await db
+      .from('user_custom_foods')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at');
+    customFoods = data || [];
   }
 
   // ─── Daily food entries ───────────────────────────────────────
@@ -891,6 +907,16 @@
         .eq('user_id',   currentUser.id)
         .eq('food_name', oldName);
 
+      // Also sync user_custom_foods if this is a custom food
+      const cf = customFoods.find(f => f.food_name === oldName);
+      if (cf) {
+        await db.from('user_custom_foods')
+          .update({ calories_per_unit: newCal })
+          .eq('user_id',   currentUser.id)
+          .eq('food_name', oldName);
+        cf.calories_per_unit = newCal;
+      }
+
       // Recalculate + update daily_summaries for every affected date
       const uniqueDates = [...new Set((affected || []).map(e => e.date))];
       for (const date of uniqueDates) {
@@ -908,14 +934,21 @@
         );
       }
 
-      // Update in-memory todayEntries if it exists under old name
       if (todayEntries[oldName]) todayEntries[oldName].calories_per_unit = newCal;
-
       row._cal = newCal;
       row._badge.textContent = newCal + ' קל׳';
     }
 
     if (nameChanged) {
+      // Also rename in user_custom_foods if this is a custom food
+      const cfIdx = customFoods.findIndex(f => f.food_name === oldName);
+      if (cfIdx >= 0) {
+        await db.from('user_custom_foods')
+          .update({ food_name: newName })
+          .eq('user_id',   currentUser.id)
+          .eq('food_name', oldName);
+        customFoods[cfIdx].food_name = newName;
+      }
       // Delete active-date DB entry under old name; new name saved on next שמור
       if (todayEntries[oldName]) {
         await deleteEntry(oldName);
@@ -931,25 +964,40 @@
 
   // ─── Build the food list ──────────────────────────────────────
   function buildList() {
-    const container = document.getElementById('foodList');
-    container.innerHTML = '';
-
+    // --- Default list ---
+    const defaultContainer = document.getElementById('defaultFoodList');
+    defaultContainer.innerHTML = '';
     foods.forEach((food, index) => {
       const saved = todayEntries[food.name];
-      container.appendChild(createFoodRow(food, index, saved));
+      defaultContainer.appendChild(createFoodRow(food, index, saved));
     });
 
-    // Custom items from DB that are not in the predefined list
-    const predefined = new Set(foods.map(f => f.name));
+    // --- Custom (permanent) list ---
+    const customContainer = document.getElementById('customFoodList');
+    customContainer.innerHTML = '';
+
+    // All known names (default + custom)
+    const allKnown = new Set([...foods.map(f => f.name), ...customFoods.map(f => f.food_name)]);
+
+    customFoods.forEach((cf, index) => {
+      const food  = { name: cf.food_name, cal: cf.calories_per_unit };
+      const saved = todayEntries[cf.food_name];
+      customContainer.appendChild(createFoodRow(food, 'cu_' + index, saved));
+    });
+
+    // Backward-compat: todayEntries that belong to neither list
     Object.values(todayEntries).forEach(entry => {
-      if (!predefined.has(entry.food_name)) {
+      if (!allKnown.has(entry.food_name)) {
         const food = { name: entry.food_name, cal: entry.calories_per_unit };
-        container.appendChild(createFoodRow(food, 'c_' + entry.id, entry));
+        customContainer.appendChild(createFoodRow(food, 'legacy_' + entry.id, entry));
       }
     });
 
+    document.getElementById('customFoodsSection').style.display =
+      (customFoods.length > 0) ? '' : 'none';
+
     updateTotal();
-    updateSnapshot(); // UI now reflects DB state
+    updateSnapshot();
   }
 
   function createFoodRow(food, index, savedEntry) {
@@ -1016,22 +1064,42 @@
   }
 
   // ─── Custom item ──────────────────────────────────────────────
-  function addCustomItem() {
+  async function addCustomItem() {
     const nameEl = document.getElementById('customName');
     const calEl  = document.getElementById('customCal');
+    const addBtn = document.getElementById('btnAddCustom');
     const name   = nameEl.value.trim();
-    const cal    = parseInt(calEl.value);
+    const cal    = parseFloat(calEl.value);
 
     if (!name || isNaN(cal) || cal < 0) {
       alert('נא למלא שם ומספר קלוריות תקין.');
       return;
     }
 
-    const row = createFoodRow({ name, cal }, 'custom_' + Date.now(), null);
-    document.getElementById('foodList').appendChild(row);
+    addBtn.disabled    = true;
+    addBtn.textContent = 'מוסיף...';
+
+    const { data, error } = await db
+      .from('user_custom_foods')
+      .upsert(
+        { user_id: currentUser.id, food_name: name, calories_per_unit: cal },
+        { onConflict: 'user_id,food_name' }
+      )
+      .select()
+      .single();
+
+    addBtn.disabled    = false;
+    addBtn.textContent = 'הוסף';
+
+    if (error) { alert('שגיאה בשמירת המוצר'); return; }
+
+    // Update in-memory list and rebuild
+    const idx = customFoods.findIndex(f => f.food_name === name);
+    if (idx >= 0) customFoods[idx] = data; else customFoods.push(data);
 
     nameEl.value = '';
     calEl.value  = '';
+    buildList();
   }
 
   // ─── Total calculation ────────────────────────────────────────
@@ -1064,6 +1132,7 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();    // sets activeTrackingDate
+    await loadCustomFoods();      // permanent custom food list
     await loadTodayEntries();     // uses activeTrackingDate
     buildList();
     showApp();
