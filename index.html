@@ -148,13 +148,27 @@
     }
     .search-input:focus { outline: none; border-color: #2d6a4f; }
 
-    /* ---------- Delete row button ---------- */
-    .btn-delete-item {
+    /* ---------- Delete / Edit row buttons ---------- */
+    .btn-delete-item, .btn-edit-item {
       background: none; border: none; color: #ccc;
-      cursor: pointer; font-size: 1.2rem; padding: 2px 6px;
+      cursor: pointer; font-size: 1rem; padding: 2px 5px;
       line-height: 1; flex-shrink: 0;
     }
     .btn-delete-item:hover { color: #e53935; }
+    .btn-edit-item:hover   { color: #2d6a4f; }
+
+    /* ---------- Inline edit inputs ---------- */
+    .edit-name-input {
+      flex: 1; padding: 3px 6px; font-size: 0.9rem;
+      border: 1px solid #2d6a4f; border-radius: 4px;
+      direction: rtl; min-width: 0;
+    }
+    .edit-cal-input {
+      width: 55px; padding: 3px 4px; font-size: 0.82rem;
+      border: 1px solid #2d6a4f; border-radius: 4px; text-align: center;
+    }
+    .btn-edit-save   { background: none; border: none; color: #2d6a4f; cursor: pointer; font-size: 1rem; padding: 2px 4px; font-weight: 700; flex-shrink: 0; }
+    .btn-edit-cancel { background: none; border: none; color: #e53935; cursor: pointer; font-size: 1rem; padding: 2px 4px; flex-shrink: 0; }
 
     /* ---------- Help button & modal ---------- */
     .btn-help {
@@ -799,6 +813,122 @@
     updateSnapshot();
   }
 
+  // ─── Inline row editing ───────────────────────────────────────
+  function startEditRow(row) {
+    if (row._editing) return;
+    row._editing = true;
+
+    // Swap name label → text input
+    const nameInput = document.createElement('input');
+    nameInput.type      = 'text';
+    nameInput.value     = row._name;
+    nameInput.className = 'edit-name-input';
+    row._nameLabel.style.display = 'none';
+    row._nameLabel.after(nameInput);
+
+    // Swap cal badge → number input
+    const calInput = document.createElement('input');
+    calInput.type      = 'number';
+    calInput.value     = row._cal;
+    calInput.min       = 0;
+    calInput.step      = 0.1;
+    calInput.className = 'edit-cal-input';
+    row._badge.style.display = 'none';
+    row._badge.after(calInput);
+
+    // Edit button → save ✓, add cancel ✗
+    row._editBtn.textContent = '✓';
+    row._editBtn.className   = 'btn-edit-save';
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = '✗';
+    cancelBtn.className   = 'btn-edit-cancel';
+    row._editBtn.after(cancelBtn);
+
+    function cleanup() {
+      row._editing = false;
+      nameInput.remove();
+      calInput.remove();
+      cancelBtn.remove();
+      row._nameLabel.style.display = '';
+      row._badge.style.display     = '';
+      row._editBtn.textContent     = '✎';
+      row._editBtn.className       = 'btn-edit-item';
+    }
+
+    async function save() {
+      const newName = nameInput.value.trim() || row._name;
+      const newCal  = parseFloat(calInput.value);
+      if (isNaN(newCal) || newCal < 0) return;
+      row._editBtn.disabled = true;
+      await applyItemEdit(row, row._name, newName, newCal);
+      row._editBtn.disabled = false;
+      cleanup();
+    }
+
+    row._editBtn.onclick  = save;
+    cancelBtn.onclick     = cleanup;
+    nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cleanup(); });
+    calInput.addEventListener ('keydown', e => { if (e.key === 'Enter') save(); if (e.key === 'Escape') cleanup(); });
+    nameInput.focus();
+  }
+
+  async function applyItemEdit(row, oldName, newName, newCal) {
+    const nameChanged = newName !== oldName;
+    const calChanged  = newCal  !== row._cal;
+    if (!nameChanged && !calChanged) return;
+
+    if (calChanged) {
+      // Get affected dates BEFORE updating
+      const { data: affected } = await db
+        .from('daily_food_entries')
+        .select('date')
+        .eq('user_id',   currentUser.id)
+        .eq('food_name', oldName);
+
+      // Update calories retroactively for all entries with this food name
+      await db.from('daily_food_entries')
+        .update({ calories_per_unit: newCal })
+        .eq('user_id',   currentUser.id)
+        .eq('food_name', oldName);
+
+      // Recalculate + update daily_summaries for every affected date
+      const uniqueDates = [...new Set((affected || []).map(e => e.date))];
+      for (const date of uniqueDates) {
+        const { data: entries } = await db
+          .from('daily_food_entries')
+          .select('calories_per_unit, quantity')
+          .eq('user_id', currentUser.id)
+          .eq('date',    date);
+        if (!entries) continue;
+        const total   = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
+        const target  = parseInt(document.getElementById('targetInput').value) || 0;
+        await db.from('daily_summaries').upsert(
+          { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total, status: 'completed' },
+          { onConflict: 'user_id,tracking_date' }
+        );
+      }
+
+      // Update in-memory todayEntries if it exists under old name
+      if (todayEntries[oldName]) todayEntries[oldName].calories_per_unit = newCal;
+
+      row._cal = newCal;
+      row._badge.textContent = newCal + ' קל׳';
+    }
+
+    if (nameChanged) {
+      // Delete active-date DB entry under old name; new name saved on next שמור
+      if (todayEntries[oldName]) {
+        await deleteEntry(oldName);
+        delete todayEntries[oldName];
+      }
+      row._name = newName;
+      row._nameLabel.textContent = newName;
+    }
+
+    updateTotal();
+    updateSnapshot();
+  }
+
   // ─── Build the food list ──────────────────────────────────────
   function buildList() {
     const container = document.getElementById('foodList');
@@ -847,6 +977,11 @@
     qty.max   = 99;
     qty.step  = 1;
 
+    const editBtn = document.createElement('button');
+    editBtn.className   = 'btn-edit-item';
+    editBtn.textContent = '✎';
+    editBtn.title       = 'ערוך שם / קלוריות';
+
     const delBtn = document.createElement('button');
     delBtn.className   = 'btn-delete-item';
     delBtn.textContent = '×';
@@ -857,22 +992,25 @@
       updateTotal();
     });
 
-    qty.addEventListener('input', () => {
-      updateTotal();
-    });
+    qty.addEventListener('input', () => { updateTotal(); });
 
-    delBtn.addEventListener('click', () => deleteItem(row, food.name));
+    editBtn.addEventListener('click', () => startEditRow(row));
+    delBtn.addEventListener('click',  () => deleteItem(row, food.name));
 
     row.appendChild(cb);
     row.appendChild(label);
     row.appendChild(badge);
     row.appendChild(qty);
+    row.appendChild(editBtn);
     row.appendChild(delBtn);
 
-    row._cb   = cb;
-    row._qty  = qty;
-    row._cal  = food.cal;
-    row._name = food.name;
+    row._cb        = cb;
+    row._qty       = qty;
+    row._cal       = food.cal;
+    row._name      = food.name;
+    row._nameLabel = label;
+    row._badge     = badge;
+    row._editBtn   = editBtn;
 
     return row;
   }
