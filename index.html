@@ -242,7 +242,7 @@
     </section>
   </main>
 
-  <!-- Unsaved changes modal -->
+  <!-- Unsaved changes modal (date switch) -->
   <div id="unsavedModal" style="display:none">
     <div class="modal-overlay">
       <div class="modal-card">
@@ -250,6 +250,18 @@
         <button class="modal-btn-save"   onclick="modalRespond('save')">שמור ועבור</button>
         <button class="modal-btn-skip"   onclick="modalRespond('skip')">עבור בלי לשמור</button>
         <button class="modal-btn-cancel" onclick="modalRespond('cancel')">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Finalize modal — unsaved changes variant -->
+  <div id="finalizeModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <p>יש שינויים שלא נשמרו.<br>לסיים את היום?</p>
+        <button class="modal-btn-save"   onclick="finalizeModalRespond('save')">שמור וסיים</button>
+        <button class="modal-btn-skip"   onclick="finalizeModalRespond('skip')">סיים בלי לשמור</button>
+        <button class="modal-btn-cancel" onclick="finalizeModalRespond('cancel')">ביטול</button>
       </div>
     </div>
   </div>
@@ -273,7 +285,8 @@
   let todayEntries       = {};     // { food_name: entry_row }
   let targetSaveTimer    = null;
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
-  let modalResolve       = null;   // resolves the unsaved-changes modal promise
+  let modalResolve         = null;  // resolves the date-switch unsaved modal
+  let finalizeModalResolve = null;  // resolves the finalize unsaved modal
 
   // ─── Predefined food list ────────────────────────────────────
   const foods = [
@@ -353,6 +366,18 @@
   function modalRespond(choice) {
     document.getElementById('unsavedModal').style.display = 'none';
     if (modalResolve) { modalResolve(choice); modalResolve = null; }
+  }
+
+  function showFinalizeModal() {
+    return new Promise(resolve => {
+      finalizeModalResolve = resolve;
+      document.getElementById('finalizeModal').style.display = 'block';
+    });
+  }
+
+  function finalizeModalRespond(choice) {
+    document.getElementById('finalizeModal').style.display = 'none';
+    if (finalizeModalResolve) { finalizeModalResolve(choice); finalizeModalResolve = null; }
   }
 
   // ─── Date picker ──────────────────────────────────────────────
@@ -577,13 +602,19 @@
 
   // "סיימתי להיום, עבור ליום הבא"
   async function finalizeDay() {
-    if (!confirm('לסיים את היום ולעבור ליום הבא?')) return;
+    if (hasUnsavedChanges()) {
+      // Unsaved changes: show dedicated modal
+      const choice = await showFinalizeModal();
+      if (choice === 'cancel') return;
+      if (choice === 'save') await saveAllRows();
+      // 'skip' → finalize using current UI total, without touching food entries
+    } else {
+      // Nothing unsaved: simple confirmation
+      if (!confirm('לסיים את היום ולעבור ליום הבא?')) return;
+    }
 
     const btn = document.getElementById('btnFinalize');
     btn.disabled = true;
-
-    // 1. Same save as "שמור": upsert checked items, delete unchecked ones from DB
-    await saveAllRows();
 
     const total = getCurrentTotal();
 
