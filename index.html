@@ -69,10 +69,34 @@
     /* ---------- Active day bar ---------- */
     .active-day-bar {
       background: #40916c; color: white;
-      text-align: center; padding: 7px 20px;
-      font-size: 0.92rem; letter-spacing: 0.01em;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 16px; font-size: 0.92rem;
     }
-    .active-day-bar span { font-weight: 700; }
+    .active-day-bar .date-label { font-weight: 700; white-space: nowrap; }
+    .btn-change-date {
+      background: rgba(255,255,255,0.18); color: white;
+      border: 1px solid rgba(255,255,255,0.4); border-radius: 6px;
+      padding: 4px 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap;
+    }
+    .btn-change-date:active { background: rgba(255,255,255,0.3); }
+
+    /* ---------- Unsaved changes modal ---------- */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200; padding: 20px;
+    }
+    .modal-card {
+      background: white; border-radius: 14px;
+      padding: 24px 20px; width: 100%; max-width: 340px;
+      display: flex; flex-direction: column; gap: 12px;
+      text-align: center;
+    }
+    .modal-card p { font-size: 1rem; line-height: 1.5; color: #222; }
+    .modal-btn-save     { background: #2d6a4f; color: white; border: none; border-radius: 8px; padding: 12px; font-size: 0.95rem; cursor: pointer; font-weight: 700; }
+    .modal-btn-skip     { background: white; color: #555; border: 1px solid #ccc; border-radius: 8px; padding: 11px; font-size: 0.95rem; cursor: pointer; }
+    .modal-btn-cancel   { background: white; color: #e53935; border: 1px solid #e53935; border-radius: 8px; padding: 11px; font-size: 0.95rem; cursor: pointer; }
 
     /* ---------- Summary bar ---------- */
     .summary-bar {
@@ -184,7 +208,9 @@
 
   <!-- Active tracking day indicator -->
   <div class="active-day-bar">
-    התאריך הפעיל: <span id="activeDateDisplay">—</span>
+    <button class="btn-change-date" onclick="openDatePicker()">להחלפת תאריך לחץ כאן</button>
+    <span class="date-label">התאריך הפעיל: <span id="activeDateDisplay">—</span></span>
+    <input type="date" id="datePicker" style="position:absolute;visibility:hidden;width:0;height:0" />
   </div>
 
   <div class="summary-bar">
@@ -216,6 +242,18 @@
     </section>
   </main>
 
+  <!-- Unsaved changes modal -->
+  <div id="unsavedModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <p>יש לך שינויים שלא נשמרו.<br>האם לשמור לפני מעבר תאריך?</p>
+        <button class="modal-btn-save"   onclick="modalRespond('save')">שמור ועבור</button>
+        <button class="modal-btn-skip"   onclick="modalRespond('skip')">עבור בלי לשמור</button>
+        <button class="modal-btn-cancel" onclick="modalRespond('cancel')">ביטול</button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -230,10 +268,12 @@
   const { createClient } = window.supabase;
   const db = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  let currentUser       = null;
+  let currentUser        = null;
   let activeTrackingDate = null;   // loaded from user_tracking_state
-  let todayEntries      = {};      // { food_name: entry_row }
-  let targetSaveTimer   = null;
+  let todayEntries       = {};     // { food_name: entry_row }
+  let targetSaveTimer    = null;
+  let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
+  let modalResolve       = null;   // resolves the unsaved-changes modal promise
 
   // ─── Predefined food list ────────────────────────────────────
   const foods = [
@@ -279,6 +319,75 @@
   function updateActiveDateDisplay() {
     document.getElementById('activeDateDisplay').textContent =
       activeTrackingDate ? formatDateHebrew(activeTrackingDate) : '—';
+  }
+
+  // ─── Unsaved changes detection ────────────────────────────────
+  function getCurrentUIState() {
+    // Returns a JSON string of { food_name: quantity } for checked items only
+    const state = {};
+    getAllRows().forEach(row => {
+      if (row._cb && row._cb.checked && row._name) {
+        state[row._name] = parseFloat(row._qty.value) || 1;
+      }
+    });
+    return JSON.stringify(state);
+  }
+
+  function updateSnapshot() {
+    savedSnapshot = getCurrentUIState();
+  }
+
+  function hasUnsavedChanges() {
+    return getCurrentUIState() !== savedSnapshot;
+  }
+
+  // ─── Unsaved changes modal ────────────────────────────────────
+  function showUnsavedModal() {
+    return new Promise(resolve => {
+      modalResolve = resolve;
+      document.getElementById('unsavedModal').style.display = 'block';
+    });
+  }
+
+  function modalRespond(choice) {
+    document.getElementById('unsavedModal').style.display = 'none';
+    if (modalResolve) { modalResolve(choice); modalResolve = null; }
+  }
+
+  // ─── Date picker ──────────────────────────────────────────────
+  function openDatePicker() {
+    const picker = document.getElementById('datePicker');
+    picker.value = activeTrackingDate || '';
+    picker.onchange = async (e) => {
+      const selected = e.target.value; // "YYYY-MM-DD"
+      if (selected && selected !== activeTrackingDate) {
+        await requestDateSwitch(selected);
+      }
+    };
+    picker.click();
+  }
+
+  async function requestDateSwitch(newDate) {
+    if (hasUnsavedChanges()) {
+      const choice = await showUnsavedModal();
+      if (choice === 'cancel') return;
+      if (choice === 'save') await saveAllRows();
+    }
+
+    // Switch to the new date
+    activeTrackingDate = newDate;
+    updateActiveDateDisplay();
+
+    // Persist as the user's active tracking day
+    await db.from('user_tracking_state').upsert({
+      user_id:               currentUser.id,
+      current_tracking_date: activeTrackingDate,
+    });
+
+    // Load data for the new date and rebuild the list
+    await loadTodayEntries();
+    buildList();
+    updateTotal();
   }
 
   // ─── Screen management ────────────────────────────────────────
@@ -447,6 +556,9 @@
     for (const [name, { cal, qty }] of checkedItems) {
       todayEntries[name] = { food_name: name, calories_per_unit: cal, quantity: qty };
     }
+
+    // 5. Update snapshot — UI is now in sync with DB
+    updateSnapshot();
   }
 
   // "שמור" button
@@ -538,6 +650,7 @@
     });
 
     updateTotal();
+    updateSnapshot(); // UI now reflects DB state
   }
 
   function createFoodRow(food, index, savedEntry) {
