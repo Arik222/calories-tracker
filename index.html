@@ -414,18 +414,39 @@
 
   // ─── Save / Finalize / Reset ──────────────────────────────────
 
-  // Shared save logic: write checked items, remove unchecked items from DB.
+  // Shared save logic: write checked items, remove previously-saved items that are now unchecked.
   async function saveAllRows() {
-    const ops = [];
+    // 1. Collect all checked items (use a Map so duplicate names don't conflict)
+    const checkedItems = new Map(); // food_name → { cal, qty }
     for (const row of getAllRows()) {
-      if (row._cb && row._cb.checked) {
+      if (row._cb && row._cb.checked && row._name) {
         const q = parseFloat(row._qty.value) || 1;
-        ops.push(upsertEntry(row._name, row._cal, q));
-      } else if (row._name) {
-        ops.push(deleteEntry(row._name));
+        checkedItems.set(row._name, { cal: row._cal, qty: q });
       }
     }
+
+    const ops = [];
+
+    // 2. Upsert every checked item
+    for (const [name, { cal, qty }] of checkedItems) {
+      ops.push(upsertEntry(name, cal, qty));
+    }
+
+    // 3. Delete only items that WERE in the DB and are now unchecked
+    //    (never delete based on unchecked UI rows that were never saved)
+    for (const name of Object.keys(todayEntries)) {
+      if (!checkedItems.has(name)) {
+        ops.push(deleteEntry(name));
+      }
+    }
+
     await Promise.all(ops);
+
+    // 4. Keep todayEntries in sync so subsequent saves are accurate
+    todayEntries = {};
+    for (const [name, { cal, qty }] of checkedItems) {
+      todayEntries[name] = { food_name: name, calories_per_unit: cal, quantity: qty };
+    }
   }
 
   // "שמור" button
