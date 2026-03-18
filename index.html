@@ -75,20 +75,12 @@
       flex-wrap: nowrap;
     }
     .active-day-bar .date-label { font-weight: 700; white-space: nowrap; }
-    .btn-change-date-wrapper {
-      position: relative; display: inline-block;
-    }
     .btn-change-date {
       background: rgba(255,255,255,0.18); color: white;
       border: 1px solid rgba(255,255,255,0.4); border-radius: 6px;
       padding: 4px 10px; font-size: 0.8rem; cursor: pointer; white-space: nowrap;
-      display: inline-block; user-select: none;
     }
-    .btn-change-date-wrapper input[type="date"] {
-      position: absolute; inset: 0; opacity: 0; cursor: pointer;
-      width: 100%; height: 100%;
-    }
-    .btn-change-date-wrapper:active .btn-change-date { background: rgba(255,255,255,0.3); }
+    .btn-change-date:active { background: rgba(255,255,255,0.3); }
 
     /* ---------- Unsaved changes modal ---------- */
     .modal-overlay {
@@ -219,10 +211,8 @@
   <!-- Active tracking day indicator -->
   <div class="active-day-bar">
     <span class="date-label">התאריך הפעיל: <span id="activeDateDisplay">—</span></span>
-    <div class="btn-change-date-wrapper">
-      <span class="btn-change-date">להחלפת תאריך לחץ כאן</span>
-      <input type="date" id="datePicker" onfocus="setDatePickerValue()" onchange="onDatePickerChange(this.value)" />
-    </div>
+    <button class="btn-change-date" onclick="openDatePicker()">להחלפת תאריך לחץ כאן</button>
+    <input type="date" id="datePicker" style="display:none" onchange="onDatePickerChange(this.value)" />
   </div>
 
   <div class="summary-bar">
@@ -393,8 +383,10 @@
   }
 
   // ─── Date picker ──────────────────────────────────────────────
-  function setDatePickerValue() {
-    document.getElementById('datePicker').value = activeTrackingDate || '';
+  function openDatePicker() {
+    const picker = document.getElementById('datePicker');
+    picker.value = activeTrackingDate || '';
+    picker.showPicker();
   }
 
   async function onDatePickerChange(value) {
