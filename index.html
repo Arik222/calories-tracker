@@ -134,6 +134,22 @@
     .food-item.unchecked .name,
     .food-item.unchecked .cal-badge { opacity: 0.45; }
 
+    /* ---------- Search ---------- */
+    .search-input {
+      width: 100%; padding: 9px 12px; font-size: 0.95rem;
+      border: 1px solid #ddd; border-radius: 8px;
+      margin-bottom: 10px; direction: rtl;
+    }
+    .search-input:focus { outline: none; border-color: #2d6a4f; }
+
+    /* ---------- Delete row button ---------- */
+    .btn-delete-item {
+      background: none; border: none; color: #ccc;
+      cursor: pointer; font-size: 1.2rem; padding: 2px 6px;
+      line-height: 1; flex-shrink: 0;
+    }
+    .btn-delete-item:hover { color: #e53935; }
+
     /* ---------- Custom item form ---------- */
     .custom-form { display: flex; flex-direction: column; gap: 10px; }
     .custom-form input[type="text"],
@@ -224,6 +240,7 @@
   <main>
     <section>
       <h2>רשימת מזון</h2>
+      <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
       <div id="foodList"></div>
     </section>
 
@@ -665,6 +682,32 @@
     updateTotal();
   }
 
+  // ─── Search ───────────────────────────────────────────────────
+  function filterFoodList() {
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    getAllRows().forEach(row => {
+      const name = (row._name || '').toLowerCase();
+      row.style.display = (!query || name.includes(query)) ? '' : 'none';
+    });
+  }
+
+  // ─── Delete a single item from the active day ─────────────────
+  async function deleteItem(row, foodName, isCustom) {
+    if (todayEntries[foodName]) {
+      await deleteEntry(foodName);
+      delete todayEntries[foodName];
+    }
+    if (isCustom) {
+      row.remove();
+    } else {
+      // Predefined items stay in the list, just unchecked
+      row._cb.checked = false;
+      row.classList.add('unchecked');
+    }
+    updateTotal();
+    updateSnapshot();
+  }
+
   // ─── Build the food list ──────────────────────────────────────
   function buildList() {
     const container = document.getElementById('foodList');
@@ -713,6 +756,13 @@
     qty.max   = 99;
     qty.step  = 1;
 
+    const isCustom = typeof index === 'string' && (index.startsWith('c_') || index.startsWith('custom_'));
+
+    const delBtn = document.createElement('button');
+    delBtn.className   = 'btn-delete-item';
+    delBtn.textContent = '×';
+    delBtn.title       = 'הסר מהיום';
+
     cb.addEventListener('change', () => {
       row.classList.toggle('unchecked', !cb.checked);
       updateTotal();
@@ -722,10 +772,13 @@
       updateTotal();
     });
 
+    delBtn.addEventListener('click', () => deleteItem(row, food.name, isCustom));
+
     row.appendChild(cb);
     row.appendChild(label);
     row.appendChild(badge);
     row.appendChild(qty);
+    row.appendChild(delBtn);
 
     row._cb   = cb;
     row._qty  = qty;
