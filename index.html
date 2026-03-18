@@ -150,6 +150,34 @@
     }
     .btn-delete-item:hover { color: #e53935; }
 
+    /* ---------- Help button & modal ---------- */
+    .btn-help {
+      position: fixed; bottom: 22px; left: 22px; z-index: 150;
+      width: 46px; height: 46px; border-radius: 50%;
+      background: #2d6a4f; color: white;
+      border: none; font-size: 1.3rem; font-weight: 700;
+      cursor: pointer; box-shadow: 0 3px 10px rgba(0,0,0,0.25);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .btn-help:active { background: #1b4332; }
+    .help-modal-card {
+      background: white; border-radius: 14px;
+      padding: 24px 20px; width: 100%; max-width: 420px;
+      max-height: 80vh; overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px;
+      text-align: right;
+    }
+    .help-modal-card h2 { color: #2d6a4f; font-size: 1.15rem; margin-bottom: 2px; }
+    .help-modal-card .help-section { border-bottom: 1px solid #f0f0f0; padding-bottom: 12px; }
+    .help-modal-card .help-section:last-of-type { border-bottom: none; }
+    .help-modal-card .help-section h3 { font-size: 0.95rem; color: #2d6a4f; margin-bottom: 4px; }
+    .help-modal-card .help-section p  { font-size: 0.88rem; color: #444; line-height: 1.55; }
+    .btn-help-close {
+      background: #2d6a4f; color: white; border: none; border-radius: 8px;
+      padding: 12px; font-size: 0.95rem; cursor: pointer; font-weight: 700;
+      margin-top: 4px;
+    }
+
     /* ---------- Custom item form ---------- */
     .custom-form { display: flex; flex-direction: column; gap: 10px; }
     .custom-form input[type="text"],
@@ -262,6 +290,9 @@
     </section>
   </main>
 
+  <!-- Floating help button -->
+  <button class="btn-help" onclick="openHelp()" title="עזרה">?</button>
+
   <!-- Unsaved changes modal (date switch) -->
   <div id="unsavedModal" style="display:none">
     <div class="modal-overlay">
@@ -270,6 +301,62 @@
         <button class="modal-btn-save"   onclick="modalRespond('save')">שמור ועבור</button>
         <button class="modal-btn-skip"   onclick="modalRespond('skip')">עבור בלי לשמור</button>
         <button class="modal-btn-cancel" onclick="modalRespond('cancel')">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Help modal -->
+  <div id="helpModal" style="display:none">
+    <div class="modal-overlay" onclick="closeHelp()">
+      <div class="help-modal-card" onclick="event.stopPropagation()">
+        <h2>איך משתמשים במערכת? 🥗</h2>
+
+        <div class="help-section">
+          <h3>✅ סימון ארוחות</h3>
+          <p>סמן ✓ ליד כל מוצר שאכלת. שנה את הכמות בשדה המספר לצד המוצר (לדוגמה: 2 לחמניות, 0.5 חזה עוף בגרמים).</p>
+        </div>
+
+        <div class="help-section">
+          <h3>💾 שמירה</h3>
+          <p>לחץ <strong>שמור</strong> כדי לשמור את הבחירות הנוכחיות במסד הנתונים. הנתונים לא נשמרים אוטומטית — יש לשמור ידנית.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>📅 סיום יום ומעבר לבא</h3>
+          <p>לחץ <strong>סיימתי להיום, עבור ליום הבא</strong> כדי לסכם את היום ולעבור לתאריך הבא. אם יש שינויים שלא נשמרו, המערכת תשאל אם לשמור לפני המעבר.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>🗓 ניווט בין תאריכים</h3>
+          <p>לחץ <strong>להחלפת תאריך לחץ כאן</strong> כדי לעבור לתאריך אחר — בין אם עבר או עתיד. ניתן לערוך ימים קודמים ולשמור שינויים.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>🔍 חיפוש מוצר</h3>
+          <p>הקלד בשדה החיפוש מעל הרשימה כדי לסנן מוצרים במהירות.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>❌ מחיקת פריט מהיום</h3>
+          <p>לחץ על × ליד מוצר כדי להסיר אותו מהיום הפעיל ולמחוק את הרשומה שלו ממסד הנתונים. פריטים מותאמים יוסרו לחלוטין; פריטים מהרשימה הקבועה ישארו אך יסומנו כלא נבחרים.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>➕ הוספת פריט מותאם</h3>
+          <p>הוסף מוצר שלא ברשימה הקבועה בעזרת הטופס "הוספת פריט מותאם". הזן שם וכמות קלוריות ולחץ הוסף.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>🔄 איפוס יום</h3>
+          <p>לחץ <strong>אפס יום</strong> כדי למחוק את כל הרשומות של התאריך הפעיל. פעולה זו בלתי הפיכה.</p>
+        </div>
+
+        <div class="help-section">
+          <h3>⚖️ מאזן קלורי וסף יומי</h3>
+          <p><strong>מאזן קלורי</strong> = הפרש בין הסף הקלורי היומי לבין הקלוריות שנצרכו. ערך שלילי = חרגת מהסף.<br>שנה את <strong>הסף הקלורי היומי</strong> בשדה הסף — הוא נשמר אוטומטית לחשבונך.</p>
+        </div>
+
+        <button class="btn-help-close" onclick="closeHelp()">הבנתי, סגור</button>
       </div>
     </div>
   </div>
@@ -681,6 +768,10 @@
     });
     updateTotal();
   }
+
+  // ─── Help modal ───────────────────────────────────────────────
+  function openHelp()  { document.getElementById('helpModal').style.display = 'block'; }
+  function closeHelp() { document.getElementById('helpModal').style.display = 'none'; }
 
   // ─── Search ───────────────────────────────────────────────────
   function filterFoodList() {
