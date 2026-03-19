@@ -909,10 +909,22 @@
 
   // ─── Delete a single item from the active day ─────────────────
   async function deleteItem(row, foodName) {
+    // Remove from active date
     if (todayEntries[foodName]) {
       await deleteEntry(foodName);
       delete todayEntries[foodName];
     }
+
+    // If it's a custom food, remove from user_custom_foods so it won't appear on future days
+    const cfIdx = customFoods.findIndex(f => f.food_name === foodName);
+    if (cfIdx >= 0) {
+      await db.from('user_custom_foods')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('food_name', foodName);
+      customFoods.splice(cfIdx, 1);
+    }
+
     row.remove();
     updateTotal();
     updateSnapshot();
