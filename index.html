@@ -443,6 +443,7 @@
   let todayEntries       = {};     // { food_name: entry_row }
   let customFoods        = [];     // permanent custom foods from user_custom_foods table
   let targetSaveTimer    = null;
+  let profileTarget      = 2300;   // global default from profiles table
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
@@ -626,6 +627,7 @@
 
     // Load data for the new date and rebuild the list
     await loadTodayEntries();
+    await loadDayTarget();
     buildList();
     updateTotal();
   }
@@ -688,11 +690,11 @@
       .single();
 
     if (data) {
-      document.getElementById('targetInput').value = data.daily_calorie_target;
+      profileTarget = data.daily_calorie_target;
     } else {
       await db.from('profiles').insert({ id: currentUser.id, daily_calorie_target: 2300 });
-      document.getElementById('targetInput').value = 2300;
     }
+    document.getElementById('targetInput').value = profileTarget;
   }
 
   function onTargetChange() {
@@ -700,8 +702,24 @@
     clearTimeout(targetSaveTimer);
     targetSaveTimer = setTimeout(async () => {
       const val = parseInt(document.getElementById('targetInput').value) || 2300;
+      profileTarget = val;
       await db.from('profiles').upsert({ id: currentUser.id, daily_calorie_target: val });
     }, 800);
+  }
+
+  // Load the calorie target for the active date:
+  // uses the stored target from daily_summaries if available, otherwise falls back to profileTarget
+  async function loadDayTarget() {
+    const { data } = await db
+      .from('daily_summaries')
+      .select('calorie_target')
+      .eq('user_id', currentUser.id)
+      .eq('tracking_date', activeTrackingDate)
+      .single();
+
+    const target = (data && data.calorie_target) ? data.calorie_target : profileTarget;
+    document.getElementById('targetInput').value = target;
+    updateTotal();
   }
 
   // ─── Tracking state (active day) ──────────────────────────────
@@ -848,6 +866,7 @@
         tracking_date:    activeTrackingDate,
         total_calories:   total,
         calorie_balance:  balance,
+        calorie_target:   target,
         status:           'completed',
       },
       { onConflict: 'user_id,tracking_date' }
@@ -1306,6 +1325,7 @@
     await loadTrackingState();
     await loadCustomFoods();
     await loadTodayEntries();
+    await loadDayTarget();
     populateCategorySelect();
     buildList();
     showApp();
