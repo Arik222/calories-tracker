@@ -627,7 +627,7 @@
 
     // Load data for the new date and rebuild the list
     await loadTodayEntries();
-    await loadDayTarget();
+    await loadEffectiveTarget();
     buildList();
     updateTotal();
   }
@@ -697,29 +697,42 @@
     document.getElementById('targetInput').value = profileTarget;
   }
 
+  // ─── Per-date calorie target (calorie_target_history table) ───
+  async function loadEffectiveTarget() {
+    const { data } = await db
+      .from('calorie_target_history')
+      .select('daily_calorie_target')
+      .eq('user_id', currentUser.id)
+      .lte('effective_from_date', activeTrackingDate)
+      .order('effective_from_date', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (data) {
+      profileTarget = data.daily_calorie_target;
+    } else {
+      // Seed initial record covering all historical dates using current profileTarget
+      await db.from('calorie_target_history').upsert(
+        { user_id: currentUser.id, effective_from_date: '2000-01-01', daily_calorie_target: profileTarget },
+        { onConflict: 'user_id,effective_from_date' }
+      );
+    }
+    document.getElementById('targetInput').value = profileTarget;
+    updateTotal();
+  }
+
   function onTargetChange() {
     updateTotal();
     clearTimeout(targetSaveTimer);
     targetSaveTimer = setTimeout(async () => {
       const val = parseInt(document.getElementById('targetInput').value) || 2300;
       profileTarget = val;
-      await db.from('profiles').upsert({ id: currentUser.id, daily_calorie_target: val });
+      // Upsert a record for today's active date — leaves past dates untouched
+      await db.from('calorie_target_history').upsert(
+        { user_id: currentUser.id, effective_from_date: activeTrackingDate, daily_calorie_target: val },
+        { onConflict: 'user_id,effective_from_date' }
+      );
     }, 800);
-  }
-
-  // Load the calorie target for the active date:
-  // uses the stored target from daily_summaries if available, otherwise falls back to profileTarget
-  async function loadDayTarget() {
-    const { data } = await db
-      .from('daily_summaries')
-      .select('calorie_target')
-      .eq('user_id', currentUser.id)
-      .eq('tracking_date', activeTrackingDate)
-      .single();
-
-    const target = (data && data.calorie_target) ? data.calorie_target : profileTarget;
-    document.getElementById('targetInput').value = target;
-    updateTotal();
   }
 
   // ─── Tracking state (active day) ──────────────────────────────
@@ -1062,14 +1075,22 @@
 
     // 6. Recalculate daily_summaries for all affected dates
     for (const date of uniqueDates) {
-      const { data: entries } = await db
-        .from('daily_food_entries')
-        .select('calories_per_unit, quantity')
-        .eq('user_id', currentUser.id)
-        .eq('date',    date);
+      const [{ data: entries }, { data: targetRow }] = await Promise.all([
+        db.from('daily_food_entries')
+          .select('calories_per_unit, quantity')
+          .eq('user_id', currentUser.id)
+          .eq('date',    date),
+        db.from('calorie_target_history')
+          .select('daily_calorie_target')
+          .eq('user_id', currentUser.id)
+          .lte('effective_from_date', date)
+          .order('effective_from_date', { ascending: false })
+          .limit(1)
+          .single(),
+      ]);
       if (!entries) continue;
       const total  = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
-      const target = parseInt(document.getElementById('targetInput').value) || 0;
+      const target = targetRow ? targetRow.daily_calorie_target : profileTarget;
       await db.from('daily_summaries').upsert(
         { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total, status: 'completed' },
         { onConflict: 'user_id,tracking_date' }
@@ -1325,7 +1346,7 @@
     await loadTrackingState();
     await loadCustomFoods();
     await loadTodayEntries();
-    await loadDayTarget();
+    await loadEffectiveTarget();
     populateCategorySelect();
     buildList();
     showApp();
