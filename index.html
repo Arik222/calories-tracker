@@ -893,70 +893,72 @@
     const calChanged  = newCal  !== row._cal;
     if (!nameChanged && !calChanged) return;
 
-    if (calChanged) {
-      // Get affected dates BEFORE updating
-      const { data: affected } = await db
-        .from('daily_food_entries')
-        .select('date')
+    // 1. Get all affected dates BEFORE any changes
+    const { data: affected } = await db
+      .from('daily_food_entries')
+      .select('date')
+      .eq('user_id',   currentUser.id)
+      .eq('food_name', oldName);
+    const uniqueDates = [...new Set((affected || []).map(e => e.date))];
+
+    // 2. Build single update payload for daily_food_entries
+    const dbUpdate = {};
+    if (calChanged)  dbUpdate.calories_per_unit = newCal;
+    if (nameChanged) dbUpdate.food_name         = newName;
+
+    await db.from('daily_food_entries')
+      .update(dbUpdate)
+      .eq('user_id',   currentUser.id)
+      .eq('food_name', oldName);
+
+    // 3. Sync user_custom_foods (if this is a custom food)
+    const cfIdx = customFoods.findIndex(f => f.food_name === oldName);
+    if (cfIdx >= 0) {
+      await db.from('user_custom_foods')
+        .update(dbUpdate)
         .eq('user_id',   currentUser.id)
         .eq('food_name', oldName);
-
-      // Update calories retroactively for all entries with this food name
-      await db.from('daily_food_entries')
-        .update({ calories_per_unit: newCal })
-        .eq('user_id',   currentUser.id)
-        .eq('food_name', oldName);
-
-      // Also sync user_custom_foods if this is a custom food
-      const cf = customFoods.find(f => f.food_name === oldName);
-      if (cf) {
-        await db.from('user_custom_foods')
-          .update({ calories_per_unit: newCal })
-          .eq('user_id',   currentUser.id)
-          .eq('food_name', oldName);
-        cf.calories_per_unit = newCal;
-      }
-
-      // Recalculate + update daily_summaries for every affected date
-      const uniqueDates = [...new Set((affected || []).map(e => e.date))];
-      for (const date of uniqueDates) {
-        const { data: entries } = await db
-          .from('daily_food_entries')
-          .select('calories_per_unit, quantity')
-          .eq('user_id', currentUser.id)
-          .eq('date',    date);
-        if (!entries) continue;
-        const total   = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
-        const target  = parseInt(document.getElementById('targetInput').value) || 0;
-        await db.from('daily_summaries').upsert(
-          { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total, status: 'completed' },
-          { onConflict: 'user_id,tracking_date' }
-        );
-      }
-
-      if (todayEntries[oldName]) todayEntries[oldName].calories_per_unit = newCal;
-      row._cal = newCal;
-      row._badge.textContent = newCal + ' קל׳';
+      if (calChanged)  customFoods[cfIdx].calories_per_unit = newCal;
+      if (nameChanged) customFoods[cfIdx].food_name         = newName;
     }
 
-    if (nameChanged) {
-      // Also rename in user_custom_foods if this is a custom food
-      const cfIdx = customFoods.findIndex(f => f.food_name === oldName);
-      if (cfIdx >= 0) {
-        await db.from('user_custom_foods')
-          .update({ food_name: newName })
-          .eq('user_id',   currentUser.id)
-          .eq('food_name', oldName);
-        customFoods[cfIdx].food_name = newName;
-      }
-      // Delete active-date DB entry under old name; new name saved on next שמור
-      if (todayEntries[oldName]) {
-        await deleteEntry(oldName);
+    // 4. Update in-memory predefined foods array (so current session shows new values)
+    const fi = foods.findIndex(f => f.name === oldName);
+    if (fi >= 0) {
+      if (calChanged)  foods[fi].cal  = newCal;
+      if (nameChanged) foods[fi].name = newName;
+    }
+
+    // 5. Update todayEntries in memory (rename key if needed)
+    if (todayEntries[oldName]) {
+      if (calChanged)  todayEntries[oldName].calories_per_unit = newCal;
+      if (nameChanged) {
+        todayEntries[newName] = { ...todayEntries[oldName], food_name: newName };
         delete todayEntries[oldName];
       }
-      row._name = newName;
-      row._nameLabel.textContent = newName;
     }
+
+    // 6. Recalculate daily_summaries for all affected dates
+    for (const date of uniqueDates) {
+      const { data: entries } = await db
+        .from('daily_food_entries')
+        .select('calories_per_unit, quantity')
+        .eq('user_id', currentUser.id)
+        .eq('date',    date);
+      if (!entries) continue;
+      const total  = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
+      const target = parseInt(document.getElementById('targetInput').value) || 0;
+      await db.from('daily_summaries').upsert(
+        { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total, status: 'completed' },
+        { onConflict: 'user_id,tracking_date' }
+      );
+    }
+
+    // 7. Update row UI
+    row._cal  = newCal;
+    row._name = newName;
+    row._badge.textContent     = newCal  + ' קל׳';
+    row._nameLabel.textContent = newName;
 
     updateTotal();
     updateSnapshot();
