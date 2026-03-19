@@ -423,24 +423,66 @@
 
   // ─── Predefined food list ────────────────────────────────────
   const foods = [
-    { name: "3 ביצים",              cal: 210 },
-    { name: "לחמניה",               cal: 180 },
-    { name: "בננה",                 cal: 100 },
-    { name: "קופסאת קוטג",          cal: 230 },
-    { name: "תפוח",                 cal: 100 },
-    { name: "חזה עוף בגרמים",        cal: 1.6 },
-    { name: "200 גרם קציצות בקר",   cal: 500 },
-    { name: "200 גרם אורז",         cal: 260 },
-    { name: "170 גרם פסטה",         cal: 260 },
-    { name: "כף קטשופ",             cal: 20  },
-    { name: "מעדן חלבון",           cal: 120 },
-    { name: "100 גרם דג",           cal: 125 },
-    { name: "חצי בתנור",            cal: 50  },
-    { name: "שניצל מאמא עוף",       cal: 240 },
-    { name: "פרוסת לזניה",          cal: 320 },
-    { name: "קופסת טונה במים",       cal: 120 },
-    { name: "קופסת טונה בשמן",       cal: 220 },
-    { name: "קערה קורנפלקס דודיק",   cal: 350 },
+    { name: "בננה",                  cal: 105,  unit: "יחידה" },
+    { name: "תפוח",                  cal: 95,   unit: "יחידה" },
+    { name: "אגס",                   cal: 100,  unit: "יחידה" },
+    { name: "תפוז",                  cal: 62,   unit: "יחידה" },
+    { name: "קלמנטינה",              cal: 35,   unit: "יחידה" },
+    { name: "אפרסק",                 cal: 60,   unit: "יחידה" },
+    { name: "נקטרינה",               cal: 60,   unit: "יחידה" },
+    { name: "מנגו",                  cal: 150,  unit: "יחידה" },
+    { name: "אבטיח (פרוסה)",         cal: 85,   unit: "יחידה" },
+    { name: "מלון (פרוסה)",          cal: 80,   unit: "יחידה" },
+    { name: "אננס (פרוסה)",          cal: 50,   unit: "יחידה" },
+    { name: "מלפפון",                cal: 30,   unit: "יחידה" },
+    { name: "עגבנייה",               cal: 22,   unit: "יחידה" },
+    { name: "גזר",                   cal: 25,   unit: "יחידה" },
+    { name: "פלפל אדום",             cal: 30,   unit: "יחידה" },
+    { name: "פלפל ירוק",             cal: 25,   unit: "יחידה" },
+    { name: "בצל",                   cal: 40,   unit: "יחידה" },
+    { name: "שום (שן)",              cal: 5,    unit: "יחידה" },
+    { name: "קישוא",                 cal: 20,   unit: "יחידה" },
+    { name: "חציל",                  cal: 90,   unit: "יחידה" },
+    { name: "ברוקולי",               cal: 50,   unit: "יחידה" },
+    { name: "כרוב",                  cal: 100,  unit: "יחידה" },
+    { name: "כרובית",                cal: 100,  unit: "יחידה" },
+    { name: "חסה",                   cal: 15,   unit: "יחידה" },
+    { name: "ביצה",                  cal: 70,   unit: "יחידה" },
+    { name: "לחם לבן",               cal: 80,   unit: "פרוסה" },
+    { name: "לחם מלא",               cal: 70,   unit: "פרוסה" },
+    { name: "פיתה",                  cal: 165,  unit: "יחידה" },
+    { name: "טורטיה",                cal: 150,  unit: "יחידה" },
+    { name: "אורז לבן מבושל",        cal: 2.60, unit: "גרם"   },
+    { name: "אורז מלא מבושל",        cal: 2.40, unit: "גרם"   },
+    { name: "פסטה מבושלת",           cal: 1.60, unit: "גרם"   },
+    { name: "תפוח אדמה",             cal: 160,  unit: "יחידה" },
+    { name: "בטטה",                  cal: 180,  unit: "יחידה" },
+    { name: "עדשים מבושלות",         cal: 1.16, unit: "גרם"   },
+    { name: "שעועית מבושלת",         cal: 1.27, unit: "גרם"   },
+    { name: "חומוס מבושל",           cal: 1.64, unit: "גרם"   },
+    { name: "חומוס",                 cal: 35,   unit: "כף"    },
+    { name: "טחינה",                 cal: 90,   unit: "כף"    },
+    { name: "חזה עוף",               cal: 1.65, unit: "גרם"   },
+    { name: "בשר בקר",               cal: 2.50, unit: "גרם"   },
+    { name: "סלמון",                 cal: 2.08, unit: "גרם"   },
+    { name: "טונה",                  cal: 1.32, unit: "גרם"   },
+    { name: "חלב",                   cal: 120,  unit: "כוס"   },
+    { name: "יוגורט",                cal: 100,  unit: "יחידה" },
+    { name: "גבינה לבנה",            cal: 80,   unit: "יחידה" },
+    { name: "גבינה צהובה",           cal: 110,  unit: "פרוסה" },
+    { name: "קוטג'",                 cal: 100,  unit: "יחידה" },
+    { name: "שמן זית",               cal: 120,  unit: "כף"    },
+    { name: "חמאה",                  cal: 100,  unit: "כף"    },
+    { name: "מיונז",                 cal: 90,   unit: "כף"    },
+    { name: "קטשופ",                 cal: 20,   unit: "כף"    },
+    { name: "שוקולד",                cal: 50,   unit: "קובייה"},
+    { name: "עוגיה",                 cal: 70,   unit: "יחידה" },
+    { name: "קרואסון",               cal: 250,  unit: "יחידה" },
+    { name: "בירה",                  cal: 150,  unit: "יחידה" },
+    { name: "יין",                   cal: 120,  unit: "כוס"   },
+    { name: "קולה",                  cal: 140,  unit: "פחית"  },
+    { name: "מיץ תפוזים",            cal: 110,  unit: "כוס"   },
+    { name: "קפה",                   cal: 5,    unit: "יחידה" },
   ];
 
   // ─── Date helpers ─────────────────────────────────────────────
@@ -959,7 +1001,7 @@
     // 7. Update row UI
     row._cal  = newCal;
     row._name = newName;
-    row._badge.textContent     = newCal  + ' קל׳';
+    row._badge.textContent     = newCal  + ' קל׳' + (row._unit ? ' / ' + row._unit : '');
     row._nameLabel.textContent = newName;
 
     updateTotal();
@@ -1020,7 +1062,7 @@
 
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
-    badge.textContent = food.cal + ' קל׳';
+    badge.textContent = food.cal + ' קל׳' + (food.unit ? ' / ' + food.unit : '');
 
     const qty = document.createElement('input');
     qty.type  = 'number';
@@ -1060,6 +1102,7 @@
     row._qty       = qty;
     row._cal       = food.cal;
     row._name      = food.name;
+    row._unit      = food.unit || '';
     row._nameLabel = label;
     row._badge     = badge;
     row._editBtn   = editBtn;
