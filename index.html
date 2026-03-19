@@ -869,6 +869,8 @@
       row._badge.style.display     = '';
       row._editBtn.textContent     = '✎';
       row._editBtn.className       = 'btn-edit-item';
+      row._editBtn.onclick         = null;
+      row._editBtn.disabled        = false;
     }
 
     async function save() {
