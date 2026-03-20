@@ -263,6 +263,22 @@
     }
     .btn-reset:active { background: #fdecea; }
 
+    /* ---------- Tab bar ---------- */
+    .tab-bar {
+      display: flex; background: white; border-radius: 12px;
+      padding: 4px; margin-bottom: 16px; gap: 4px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .tab-btn {
+      flex: 1; padding: 10px; border: none; background: none;
+      border-radius: 8px; font-size: 0.95rem; font-weight: 600;
+      cursor: pointer; color: #888; transition: background 0.15s, color 0.15s;
+    }
+    .tab-btn.active { background: #2d6a4f; color: white; }
+
+    /* ---------- Graph screen ---------- */
+    .chart-container { position: relative; height: 300px; }
+
     /* ---------- Exercise section ---------- */
     #exerciseSection h2 { color: #1565c0; border-bottom-color: #e3f2fd; }
     .exercise-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; }
@@ -324,35 +340,54 @@
   </div>
 
   <main>
-    <section>
-      <h2>רשימת מוצרים</h2>
-      <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
-      <div id="defaultFoodList"></div>
-    </section>
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabTracker" onclick="switchTab('tracker')">מעקב יומי</button>
+      <button class="tab-btn"        id="tabGraphs"  onclick="switchTab('graphs')">גרפים</button>
+    </div>
 
-    <section id="exerciseSection">
-      <h2>פעילות גופנית</h2>
-      <div id="exerciseList"></div>
-    </section>
+    <div id="trackerView">
+      <section>
+        <h2>רשימת מוצרים</h2>
+        <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
+        <div id="defaultFoodList"></div>
+      </section>
 
-    <section>
-      <h2>הוספת פריט מותאם</h2>
-      <div class="custom-form">
-        <input type="text"   id="customName" placeholder="שם המוצר" />
-        <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
-        <input type="text"   id="customUnit" placeholder="יחידת מידה (לדוגמה: גרם, כף, יחידה)" />
-        <select id="customCategory"></select>
-        <button id="btnAddCustom" class="btn-add" onclick="addCustomItem()">הוסף</button>
-      </div>
-    </section>
+      <section id="exerciseSection">
+        <h2>פעילות גופנית</h2>
+        <div id="exerciseList"></div>
+      </section>
 
-    <section>
-      <div class="actions-section">
-        <button id="btnSave"     class="btn-save"     onclick="saveProgress()">שמור</button>
-        <button id="btnFinalize" class="btn-finalize" onclick="finalizeDay()">סיימתי להיום, עבור ליום הבא</button>
-        <button                  class="btn-reset"    onclick="resetDay()">אפס יום</button>
-      </div>
-    </section>
+      <section>
+        <h2>הוספת פריט מותאם</h2>
+        <div class="custom-form">
+          <input type="text"   id="customName" placeholder="שם המוצר" />
+          <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
+          <input type="text"   id="customUnit" placeholder="יחידת מידה (לדוגמה: גרם, כף, יחידה)" />
+          <select id="customCategory"></select>
+          <button id="btnAddCustom" class="btn-add" onclick="addCustomItem()">הוסף</button>
+        </div>
+      </section>
+
+      <section>
+        <div class="actions-section">
+          <button id="btnSave"     class="btn-save"     onclick="saveProgress()">שמור</button>
+          <button id="btnFinalize" class="btn-finalize" onclick="finalizeDay()">סיימתי להיום, עבור ליום הבא</button>
+          <button                  class="btn-reset"    onclick="resetDay()">אפס יום</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="graphsView" style="display:none">
+      <section>
+        <h2>מאזן קלורי לאורך זמן</h2>
+        <div class="chart-container">
+          <canvas id="balanceChart"></canvas>
+        </div>
+        <div id="graphsEmptyState" style="display:none; text-align:center; color:#888; padding:40px 0; font-size:0.95rem;">
+          אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
+        </div>
+      </section>
+    </div>
   </main>
 
   <!-- Floating help button -->
@@ -451,6 +486,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script src="config.js"></script>
 <script>
 
@@ -1528,6 +1564,89 @@
     const remEl = document.getElementById('remainingDisplay');
     remEl.textContent = Math.round(remaining);
     remEl.classList.toggle('negative', remaining < 0);
+  }
+
+  // ─── Tab navigation ──────────────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('trackerView').style.display = tab === 'tracker' ? '' : 'none';
+    document.getElementById('graphsView').style.display  = tab === 'graphs'  ? '' : 'none';
+    document.getElementById('tabTracker').classList.toggle('active', tab === 'tracker');
+    document.getElementById('tabGraphs').classList.toggle('active',  tab === 'graphs');
+    if (tab === 'graphs') loadAndRenderGraphs();
+  }
+
+  // ─── Graphs ───────────────────────────────────────────────────
+  let balanceChartInstance = null;
+
+  async function loadAndRenderGraphs() {
+    const canvas   = document.getElementById('balanceChart');
+    const empty    = document.getElementById('graphsEmptyState');
+
+    canvas.style.display = 'none';
+    empty.style.display  = 'none';
+
+    const { data } = await db
+      .from('daily_summaries')
+      .select('tracking_date, calorie_balance')
+      .eq('user_id', currentUser.id)
+      .order('tracking_date', { ascending: true });
+
+    if (!data || data.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+
+    canvas.style.display = '';
+    if (balanceChartInstance) { balanceChartInstance.destroy(); balanceChartInstance = null; }
+
+    const labels = data.map(d => formatDateHebrew(d.tracking_date));
+    const values = data.map(d => d.calorie_balance);
+
+    balanceChartInstance = new Chart(canvas.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'מאזן קלורי',
+          data: values,
+          borderColor: '#2d6a4f',
+          borderWidth: 2,
+          pointBackgroundColor: values.map(v => v >= 0 ? '#2d6a4f' : '#e53935'),
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.3,
+          fill: { target: 'origin', above: 'rgba(45,106,79,0.08)', below: 'rgba(229,57,53,0.08)' },
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const v = ctx.parsed.y;
+                return `מאזן: ${v > 0 ? '+' : ''}${v} קל׳`;
+              },
+            },
+          },
+        },
+        scales: {
+          y: {
+            grid: {
+              color: ctx => ctx.tick.value === 0 ? '#444' : '#f0f0f0',
+              lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1,
+            },
+            ticks: { callback: v => v + ' קל׳' },
+          },
+          x: {
+            grid: { display: false },
+            ticks: { maxRotation: 45, minRotation: 0 },
+          },
+        },
+      },
+    });
   }
 
   // ─── App init ─────────────────────────────────────────────────
