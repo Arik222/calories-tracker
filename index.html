@@ -1476,7 +1476,7 @@
     addBtn.disabled    = false;
     addBtn.textContent = 'הוסף';
 
-    if (error) { alert('שגיאה בשמירת המוצר'); return; }
+    if (error) { console.error('addCustomItem error:', error); alert('שגיאה בשמירת המוצר: ' + error.message); return; }
 
     const idx = customFoods.findIndex(f => f.food_name === name);
     if (idx >= 0) customFoods[idx] = data; else customFoods.push(data);
