@@ -340,7 +340,7 @@
       <div class="custom-form">
         <input type="text"   id="customName" placeholder="שם המוצר" />
         <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
-        <label for="customCategory" style="font-size:0.88rem;color:#666;margin-bottom:-4px;">קטגוריה</label>
+        <input type="text"   id="customUnit" placeholder="יחידת מידה (לדוגמה: גרם, כף, יחידה)" />
         <select id="customCategory"></select>
         <button id="btnAddCustom" class="btn-add" onclick="addCustomItem()">הוסף</button>
       </div>
@@ -1448,10 +1448,12 @@
   async function addCustomItem() {
     const nameEl = document.getElementById('customName');
     const calEl  = document.getElementById('customCal');
+    const unitEl = document.getElementById('customUnit');
     const catEl  = document.getElementById('customCategory');
     const addBtn = document.getElementById('btnAddCustom');
     const name   = nameEl.value.trim();
     const cal    = parseFloat(calEl.value);
+    const unit   = unitEl.value.trim();
     const cat    = catEl.value || 'אחר';
 
     if (!name || isNaN(cal) || cal < 0) {
@@ -1465,7 +1467,7 @@
     const { data, error } = await db
       .from('user_custom_foods')
       .upsert(
-        { user_id: currentUser.id, food_name: name, calories_per_unit: cal, category: cat },
+        { user_id: currentUser.id, food_name: name, calories_per_unit: cal, unit, category: cat },
         { onConflict: 'user_id,food_name' }
       )
       .select()
@@ -1481,6 +1483,7 @@
 
     nameEl.value = '';
     calEl.value  = '';
+    unitEl.value = '';
     catEl.value  = '';
     buildListPreservingState();
   }
