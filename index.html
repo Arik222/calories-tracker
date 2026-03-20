@@ -325,14 +325,9 @@
 
   <main>
     <section>
-      <h2>רשימת ברירת מחדל</h2>
+      <h2>רשימת מוצרים</h2>
       <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
       <div id="defaultFoodList"></div>
-    </section>
-
-    <section id="customFoodsSection" style="display:none">
-      <h2>המוצרים שלי</h2>
-      <div id="customFoodList"></div>
     </section>
 
     <section id="exerciseSection">
@@ -343,8 +338,9 @@
     <section>
       <h2>הוספת פריט מותאם</h2>
       <div class="custom-form">
-        <input type="text"   id="customName" placeholder="שם הפריט" />
+        <input type="text"   id="customName" placeholder="שם המוצר" />
         <input type="number" id="customCal"  placeholder="קלוריות" min="0" />
+        <label for="customCategory" style="font-size:0.88rem;color:#666;margin-bottom:-4px;">קטגוריה</label>
         <select id="customCategory"></select>
         <button id="btnAddCustom" class="btn-add" onclick="addCustomItem()">הוסף</button>
       </div>
@@ -1298,77 +1294,79 @@
 
   // ─── Build the food list ──────────────────────────────────────
   function buildList() {
-    // --- Default list (accordion by category) ---
-    const defaultContainer = document.getElementById('defaultFoodList');
-    defaultContainer.innerHTML = '';
+    const container = document.getElementById('defaultFoodList');
+    container.innerHTML = '';
 
-    const defGroups = new Map(CATEGORIES.map(c => [c, []]));
+    // Merge default foods and custom foods into shared category groups
+    const groups = new Map(CATEGORIES.map(c => [c, []]));
+
     foods.forEach((food, index) => {
-      (defGroups.get(food.category) || defGroups.get('אחר')).push({ food, index });
+      const cat = food.category || 'אחר';
+      (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
+
+    customFoods.forEach((cf, i) => {
+      const food = { name: cf.food_name, cal: cf.calories_per_unit, unit: cf.unit || '' };
+      const cat  = cf.category || 'אחר';
+      (groups.get(cat) || groups.get('אחר')).push({ food, key: 'cu_' + i, savedEntry: todayEntries[cf.food_name] });
+    });
+
+    // Legacy: entries saved in DB that belong to no known food — show under 'אחר'
+    const allKnown = new Set([...foods.map(f => f.name), ...customFoods.map(f => f.food_name)]);
+    Object.values(todayEntries)
+      .filter(e => !allKnown.has(e.food_name))
+      .forEach(e => {
+        const food = { name: e.food_name, cal: e.calories_per_unit };
+        groups.get('אחר').push({ food, key: 'legacy_' + e.id, savedEntry: e });
+      });
 
     let firstCat = true;
     CATEGORIES.forEach(cat => {
-      const items = defGroups.get(cat);
+      const items = groups.get(cat);
       if (!items || items.length === 0) return;
       const { details, countEl } = makeCatDetails(cat, firstCat);
       firstCat = false;
-      items.forEach(({ food, index }) => {
-        details.appendChild(createFoodRow(food, index, todayEntries[food.name]));
+      items.forEach(({ food, key, savedEntry }) => {
+        details.appendChild(createFoodRow(food, key, savedEntry));
       });
       countEl.textContent = items.length;
-      defaultContainer.appendChild(details);
+      container.appendChild(details);
     });
-
-    // --- Custom list (accordion by category, flat if all 'אחר') ---
-    const customContainer = document.getElementById('customFoodList');
-    customContainer.innerHTML = '';
-
-    const allKnown = new Set([...foods.map(f => f.name), ...customFoods.map(f => f.food_name)]);
-
-    // Build custom item list with category info
-    const customItems = [
-      ...customFoods.map((cf, i) => ({
-        food: { name: cf.food_name, cal: cf.calories_per_unit, unit: cf.unit || '' },
-        key: 'cu_' + i,
-        saved: todayEntries[cf.food_name],
-        cat: cf.category || 'אחר',
-      })),
-      ...Object.values(todayEntries)
-        .filter(e => !allKnown.has(e.food_name))
-        .map(e => ({
-          food: { name: e.food_name, cal: e.calories_per_unit },
-          key: 'legacy_' + e.id,
-          saved: e,
-          cat: 'אחר',
-        })),
-    ];
-
-    const usedCats = new Set(customItems.map(i => i.cat));
-    const useAccordion = usedCats.size > 1 || (usedCats.size === 1 && !usedCats.has('אחר'));
-
-    if (useAccordion) {
-      const cusGroups = new Map(CATEGORIES.map(c => [c, []]));
-      customItems.forEach(item => (cusGroups.get(item.cat) || cusGroups.get('אחר')).push(item));
-      CATEGORIES.forEach(cat => {
-        const items = cusGroups.get(cat);
-        if (!items || items.length === 0) return;
-        const { details, countEl } = makeCatDetails(cat, false);
-        items.forEach(({ food, key, saved }) => details.appendChild(createFoodRow(food, key, saved)));
-        countEl.textContent = items.length;
-        customContainer.appendChild(details);
-      });
-    } else {
-      customItems.forEach(({ food, key, saved }) =>
-        customContainer.appendChild(createFoodRow(food, key, saved)));
-    }
-
-    document.getElementById('customFoodsSection').style.display =
-      customFoods.length > 0 ? '' : 'none';
 
     buildExerciseList();
     updateTotal();
     updateSnapshot();
+  }
+
+  // Like buildList() but restores the current UI checkbox/qty state on top,
+  // so unsaved changes made before the rebuild are not lost.
+  function buildListPreservingState() {
+    const state = new Map();
+    getAllRows().forEach(row => {
+      if (row._name) {
+        state.set(row._name, {
+          checked: !!(row._cb && row._cb.checked),
+          qty:     parseFloat(row._qty && row._qty.value) || 1,
+        });
+      }
+    });
+
+    buildList(); // resets DOM; snapshot is now based on todayEntries (DB state)
+
+    // Overlay the captured UI state so unsaved checks/quantities survive
+    getAllRows().forEach(row => {
+      if (!row._name || !state.has(row._name)) return;
+      const s = state.get(row._name);
+      if (row._cb) {
+        row._cb.checked = s.checked;
+        row.classList.toggle('unchecked', !s.checked);
+      }
+      if (row._qty) row._qty.value = s.qty;
+    });
+
+    updateTotal();
+    // Intentionally NOT calling updateSnapshot() again —
+    // the snapshot from buildList() reflects DB state, which is correct for unsaved-changes detection.
   }
 
   function createFoodRow(food, index, savedEntry) {
@@ -1484,7 +1482,7 @@
     nameEl.value = '';
     calEl.value  = '';
     catEl.value  = '';
-    buildList();
+    buildListPreservingState();
   }
 
   // ─── Total calculation ────────────────────────────────────────
