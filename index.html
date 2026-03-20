@@ -1174,7 +1174,7 @@
     const calChanged  = newCal  !== row._cal;
     if (!nameChanged && !calChanged) return;
 
-    // 1. Get all affected dates BEFORE any changes
+    // 1. Get all dates that have this food (needed to know which summaries to recalc)
     const { data: affected } = await db
       .from('daily_food_entries')
       .select('date')
@@ -1182,15 +1182,22 @@
       .eq('food_name', oldName);
     const uniqueDates = [...new Set((affected || []).map(e => e.date))];
 
-    // 2. Build single update payload for daily_food_entries
-    const dbUpdate = {};
-    if (calChanged)  dbUpdate.calories_per_unit = newCal;
-    if (nameChanged) dbUpdate.food_name         = newName;
+    // 2a. Name changes apply to ALL dates — keep naming consistent across history
+    if (nameChanged) {
+      await db.from('daily_food_entries')
+        .update({ food_name: newName })
+        .eq('user_id',   currentUser.id)
+        .eq('food_name', oldName);
+    }
 
-    await db.from('daily_food_entries')
-      .update(dbUpdate)
-      .eq('user_id',   currentUser.id)
-      .eq('food_name', oldName);
+    // 2b. Calorie changes apply ONLY from activeTrackingDate forward — never distort past data
+    if (calChanged) {
+      await db.from('daily_food_entries')
+        .update({ calories_per_unit: newCal })
+        .eq('user_id',   currentUser.id)
+        .eq('food_name', nameChanged ? newName : oldName)
+        .gte('date', activeTrackingDate);
+    }
 
     // 3. Sync user_custom_foods (if this is a custom food)
     const cfIdx = customFoods.findIndex(f => f.food_name === oldName);
@@ -1219,8 +1226,12 @@
       }
     }
 
-    // 6. Recalculate daily_summaries for all affected dates
-    for (const date of uniqueDates) {
+    // 6. Recalculate daily_summaries — only for dates >= activeTrackingDate
+    //    (calorie data before activeTrackingDate was intentionally left untouched)
+    const datesToRecalc = calChanged
+      ? uniqueDates.filter(d => d >= activeTrackingDate)
+      : []; // name-only change doesn't affect totals, no recalc needed
+    for (const date of datesToRecalc) {
       const [{ data: entries }, { data: targetRow }, { data: exEntries }] = await Promise.all([
         db.from('daily_food_entries')
           .select('calories_per_unit, quantity')
