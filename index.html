@@ -1601,34 +1601,21 @@
     canvas.style.display = 'none';
     empty.style.display  = 'none';
 
-    const { data } = await db
+    const { data, error } = await db
       .from('daily_summaries')
-      .select('tracking_date, calorie_balance, total_calories, calorie_target')
+      .select('tracking_date, calorie_balance, total_calories')
       .eq('user_id', currentUser.id)
       .order('tracking_date', { ascending: true });
 
-    if (!data || data.length === 0) {
-      empty.style.display = '';
-      return;
-    }
+    if (error) { console.error('Graph load error:', error); empty.style.display = ''; return; }
+    if (!data || data.length === 0) { empty.style.display = ''; return; }
 
-    // Older records may have calorie_balance = null (column added mid-development).
-    // Fall back to calorie_target - total_calories when that happens.
+    // Use calorie_balance when available; skip rows where it's null
     const rows = data
-      .map(d => ({
-        date:    d.tracking_date,
-        balance: d.calorie_balance ?? (
-          d.calorie_target != null && d.total_calories != null
-            ? d.calorie_target - d.total_calories
-            : null
-        ),
-      }))
+      .map(d => ({ date: d.tracking_date, balance: d.calorie_balance }))
       .filter(d => d.balance !== null);
 
-    if (rows.length === 0) {
-      empty.style.display = '';
-      return;
-    }
+    if (rows.length === 0) { empty.style.display = ''; return; }
 
     canvas.style.display = '';
     if (balanceChartInstance) { balanceChartInstance.destroy(); balanceChartInstance = null; }
