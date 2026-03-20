@@ -366,9 +366,9 @@
   <div id="unsavedModal" style="display:none">
     <div class="modal-overlay">
       <div class="modal-card">
-        <p>יש לך שינויים שלא נשמרו.<br>האם לשמור לפני מעבר תאריך?</p>
-        <button class="modal-btn-save"   onclick="modalRespond('save')">שמור ועבור</button>
-        <button class="modal-btn-skip"   onclick="modalRespond('skip')">עבור בלי לשמור</button>
+        <p>יש שינויים שלא נשמרו.<br>מה לעשות לפני שממשיכים?</p>
+        <button class="modal-btn-save"   onclick="modalRespond('save')">שמור והמשך</button>
+        <button class="modal-btn-skip"   onclick="modalRespond('skip')">המשך בלי לשמור</button>
         <button class="modal-btn-cancel" onclick="modalRespond('cancel')">ביטול</button>
       </div>
     </div>
@@ -732,6 +732,11 @@
   }
 
   async function signOut() {
+    if (hasUnsavedChanges()) {
+      const choice = await showUnsavedModal();
+      if (choice === 'cancel') return;
+      if (choice === 'save') await saveAllRows();
+    }
     await db.auth.signOut();
   }
 
