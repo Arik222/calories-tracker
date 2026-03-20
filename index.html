@@ -262,6 +262,18 @@
       font-size: 0.95rem; cursor: pointer; font-weight: 700;
     }
     .btn-reset:active { background: #fdecea; }
+
+    /* ---------- Exercise section ---------- */
+    #exerciseSection h2 { color: #b45309; border-bottom-color: #fef3c7; }
+    .exercise-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; }
+    .exercise-item:last-child { border-bottom: none; }
+    .exercise-item input[type="checkbox"] { width: 26px; height: 26px; accent-color: #d97706; cursor: pointer; flex-shrink: 0; }
+    .exercise-item .name  { flex: 1; font-size: 0.95rem; }
+    .exercise-item .cal-badge { font-size: 0.82rem; color: #92400e; white-space: nowrap; }
+    .exercise-item input[type="number"] { width: 62px; padding: 5px 4px; font-size: 0.95rem; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
+    .exercise-item input[type="number"]:focus { outline: none; border-color: #d97706; }
+    .exercise-item.unchecked .name,
+    .exercise-item.unchecked .cal-badge { opacity: 0.45; }
   </style>
 </head>
 <body>
@@ -307,6 +319,7 @@
 
   <div class="summary-bar">
     <div>קלוריות שנצרכו: <span id="totalDisplay">0</span></div>
+    <div>נשרפו בפעילות: <span id="burnedDisplay">0</span></div>
     <div>סף קלורי יומי: <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" style="width:70px;padding:3px 6px;font-size:0.95rem;border:1px solid rgba(255,255,255,0.4);border-radius:6px;text-align:center;background:transparent;color:white;" /></div>
   </div>
 
@@ -320,6 +333,11 @@
     <section id="customFoodsSection" style="display:none">
       <h2>המוצרים שלי</h2>
       <div id="customFoodList"></div>
+    </section>
+
+    <section id="exerciseSection">
+      <h2>פעילות גופנית</h2>
+      <div id="exerciseList"></div>
     </section>
 
     <section>
@@ -441,6 +459,7 @@
   let currentUser        = null;
   let activeTrackingDate = null;   // loaded from user_tracking_state
   let todayEntries       = {};     // { food_name: entry_row }
+  let exerciseEntries    = {};     // { exercise_name: entry_row }
   let customFoods        = [];     // permanent custom foods from user_custom_foods table
   let targetSaveTimer    = null;
   let profileTarget      = 2300;   // global default from profiles table
@@ -525,6 +544,25 @@
     { name: "קפה",                   cal: 5,    unit: "יחידה", category: "משקאות"             },
   ];
 
+  // ─── Exercise list ────────────────────────────────────────────
+  // cal = calories burned per unit; unit is shown to user
+  // For jump rope: unit is "קפיצות", cal = 0.1 per jump (1000 jumps ≈ 100 kcal)
+  // For all others: unit is "10 דקות", cal = kcal burned per 10 minutes
+  const exercises = [
+    { name: "ריצה",              cal: 100,  unit: "10 דקות"  },
+    { name: "הליכה",             cal: 50,   unit: "10 דקות"  },
+    { name: "שחייה",             cal: 90,   unit: "10 דקות"  },
+    { name: "רכיבה על אופניים",  cal: 80,   unit: "10 דקות"  },
+    { name: "כדורסל",            cal: 85,   unit: "10 דקות"  },
+    { name: "כדורגל",            cal: 90,   unit: "10 דקות"  },
+    { name: "טניס",              cal: 70,   unit: "10 דקות"  },
+    { name: "טניס שולחן",        cal: 40,   unit: "10 דקות"  },
+    { name: "אימון משקולות",     cal: 70,   unit: "10 דקות"  },
+    { name: "יוגה",              cal: 35,   unit: "10 דקות"  },
+    { name: "ריקוד",             cal: 55,   unit: "10 דקות"  },
+    { name: "קפיצה בחבל",        cal: 0.1,  unit: "קפיצות"   },
+  ];
+
   // ─── Date helpers ─────────────────────────────────────────────
   function getRealToday() {
     // Real calendar date — used ONLY when initializing a brand-new user
@@ -551,14 +589,19 @@
 
   // ─── Unsaved changes detection ────────────────────────────────
   function getCurrentUIState() {
-    // Collect checked items, sort by name, then stringify — fully order-independent
+    // Collect checked food + exercise items, sort by name, then stringify — fully order-independent
     const entries = [];
     getAllRows().forEach(row => {
       if (row._cb && row._cb.checked && row._name) {
-        entries.push([row._name, parseFloat(row._qty.value) || 1]);
+        entries.push(['f', row._name, parseFloat(row._qty.value) || 1]);
       }
     });
-    entries.sort((a, b) => a[0].localeCompare(b[0]));
+    getAllExerciseRows().forEach(row => {
+      if (row._cb && row._cb.checked && row._name) {
+        entries.push(['e', row._name, parseFloat(row._qty.value) || 1]);
+      }
+    });
+    entries.sort((a, b) => (a[0] + a[1]).localeCompare(b[0] + b[1]));
     return JSON.stringify(entries);
   }
 
@@ -626,8 +669,7 @@
     });
 
     // Load data for the new date and rebuild the list
-    await loadTodayEntries();
-    await loadEffectiveTarget();
+    await Promise.all([loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget()]);
     buildList();
     updateTotal();
   }
@@ -802,6 +844,32 @@
       .eq('food_name', foodName);
   }
 
+  // ─── Exercise entries ─────────────────────────────────────────
+  async function loadExerciseEntries() {
+    const { data } = await db
+      .from('daily_exercise_entries')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('date',    activeTrackingDate);
+    exerciseEntries = {};
+    if (data) data.forEach(e => { exerciseEntries[e.exercise_name] = e; });
+  }
+
+  async function upsertExerciseEntry(name, calPerUnit, qty) {
+    await db.from('daily_exercise_entries').upsert(
+      { user_id: currentUser.id, date: activeTrackingDate, exercise_name: name, calories_per_unit: calPerUnit, quantity: qty },
+      { onConflict: 'user_id,date,exercise_name' }
+    );
+  }
+
+  async function deleteExerciseEntry(name) {
+    await db.from('daily_exercise_entries')
+      .delete()
+      .eq('user_id',       currentUser.id)
+      .eq('date',          activeTrackingDate)
+      .eq('exercise_name', name);
+  }
+
   // ─── Save / Finalize / Reset ──────────────────────────────────
 
   // Shared save logic: write checked items, remove previously-saved items that are now unchecked.
@@ -838,7 +906,27 @@
       todayEntries[name] = { food_name: name, calories_per_unit: cal, quantity: qty };
     }
 
-    // 5. Update snapshot — UI is now in sync with DB
+    // 5. Save exercise entries
+    const checkedExercise = new Map();
+    for (const row of getAllExerciseRows()) {
+      if (row._cb && row._cb.checked && row._name) {
+        checkedExercise.set(row._name, { cal: row._cal, qty: parseFloat(row._qty.value) || 1 });
+      }
+    }
+    const exOps = [];
+    for (const [name, { cal, qty }] of checkedExercise) {
+      exOps.push(upsertExerciseEntry(name, cal, qty));
+    }
+    for (const name of Object.keys(exerciseEntries)) {
+      if (!checkedExercise.has(name)) exOps.push(deleteExerciseEntry(name));
+    }
+    await Promise.all(exOps);
+    exerciseEntries = {};
+    for (const [name, { cal, qty }] of checkedExercise) {
+      exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
+    }
+
+    // 6. Update snapshot — UI is now in sync with DB
     updateSnapshot();
   }
 
@@ -869,8 +957,9 @@
     btn.disabled = true;
 
     const total   = getCurrentTotal();
+    const burned  = getCurrentBurned();
     const target  = parseInt(document.getElementById('targetInput').value) || 0;
-    const balance = target - total;
+    const balance = target - total + burned;
 
     // 3. Save final summary for this day
     await db.from('daily_summaries').upsert(
@@ -880,6 +969,7 @@
         total_calories:   total,
         calorie_balance:  balance,
         calorie_target:   target,
+        exercise_burned:  burned,
         status:           'completed',
       },
       { onConflict: 'user_id,tracking_date' }
@@ -895,7 +985,7 @@
     updateActiveDateDisplay();
 
     // 5. Load whatever data exists for the new date (may be empty, may not)
-    await loadTodayEntries();
+    await Promise.all([loadTodayEntries(), loadExerciseEntries()]);
     buildList();
     updateTotal();
 
@@ -906,12 +996,18 @@
   async function resetDay() {
     if (!confirm('למחוק את כל הרשומות של היום הפעיל?')) return;
 
-    await db.from('daily_food_entries')
-      .delete()
-      .eq('user_id', currentUser.id)
-      .eq('date',    activeTrackingDate);   // ← active day
+    await Promise.all([
+      db.from('daily_food_entries').delete().eq('user_id', currentUser.id).eq('date', activeTrackingDate),
+      db.from('daily_exercise_entries').delete().eq('user_id', currentUser.id).eq('date', activeTrackingDate),
+    ]);
+    todayEntries = {};
+    exerciseEntries = {};
 
     getAllRows().forEach(row => {
+      if (row._cb)  { row._cb.checked = false; row.classList.add('unchecked'); }
+      if (row._qty) row._qty.value = 1;
+    });
+    getAllExerciseRows().forEach(row => {
       if (row._cb)  { row._cb.checked = false; row.classList.add('unchecked'); }
       if (row._qty) row._qty.value = 1;
     });
@@ -1075,7 +1171,7 @@
 
     // 6. Recalculate daily_summaries for all affected dates
     for (const date of uniqueDates) {
-      const [{ data: entries }, { data: targetRow }] = await Promise.all([
+      const [{ data: entries }, { data: targetRow }, { data: exEntries }] = await Promise.all([
         db.from('daily_food_entries')
           .select('calories_per_unit, quantity')
           .eq('user_id', currentUser.id)
@@ -1087,12 +1183,17 @@
           .order('effective_from_date', { ascending: false })
           .limit(1)
           .single(),
+        db.from('daily_exercise_entries')
+          .select('calories_per_unit, quantity')
+          .eq('user_id', currentUser.id)
+          .eq('date',    date),
       ]);
       if (!entries) continue;
       const total  = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
+      const burned = Math.round((exEntries || []).reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
       const target = targetRow ? targetRow.daily_calorie_target : profileTarget;
       await db.from('daily_summaries').upsert(
-        { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total, status: 'completed' },
+        { user_id: currentUser.id, tracking_date: date, total_calories: total, calorie_balance: target - total + burned, exercise_burned: burned, status: 'completed' },
         { onConflict: 'user_id,tracking_date' }
       );
     }
@@ -1122,6 +1223,60 @@
     details.appendChild(summary);
     details.addEventListener('toggle', () => setCatState(catName, details.open));
     return { details, countEl };
+  }
+
+  // ─── Build the exercise list ──────────────────────────────────
+  function buildExerciseList() {
+    const container = document.getElementById('exerciseList');
+    container.innerHTML = '';
+    exercises.forEach((ex, i) => {
+      container.appendChild(createExerciseRow(ex, i, exerciseEntries[ex.name]));
+    });
+  }
+
+  function createExerciseRow(ex, index, savedEntry) {
+    const row = document.createElement('div');
+    row.className = 'exercise-item' + (savedEntry ? '' : ' unchecked');
+
+    const cb = document.createElement('input');
+    cb.type    = 'checkbox';
+    cb.id      = 'excb_' + index;
+    cb.checked = !!savedEntry;
+
+    const label = document.createElement('label');
+    label.htmlFor     = 'excb_' + index;
+    label.className   = 'name';
+    label.textContent = ex.name;
+
+    const badge = document.createElement('span');
+    badge.className   = 'cal-badge';
+    badge.textContent = ex.cal + ' קל׳ / ' + ex.unit;
+
+    const qty = document.createElement('input');
+    qty.type  = 'number';
+    qty.value = savedEntry ? savedEntry.quantity : 1;
+    qty.min   = 1;
+    qty.max   = 999;
+    qty.step  = 1;
+
+    cb.addEventListener('change', () => {
+      row.classList.toggle('unchecked', !cb.checked);
+      updateTotal();
+    });
+    qty.addEventListener('input', () => { updateTotal(); });
+
+    row.appendChild(cb);
+    row.appendChild(label);
+    row.appendChild(badge);
+    row.appendChild(qty);
+
+    row._cb   = cb;
+    row._qty  = qty;
+    row._cal  = ex.cal;
+    row._name = ex.name;
+    row._unit = ex.unit;
+
+    return row;
   }
 
   // ─── Build the food list ──────────────────────────────────────
@@ -1194,6 +1349,7 @@
     document.getElementById('customFoodsSection').style.display =
       customFoods.length > 0 ? '' : 'none';
 
+    buildExerciseList();
     updateTotal();
     updateSnapshot();
   }
@@ -1319,6 +1475,10 @@
     return Array.from(document.querySelectorAll('.food-item'));
   }
 
+  function getAllExerciseRows() {
+    return Array.from(document.querySelectorAll('.exercise-item'));
+  }
+
   function getCurrentTotal() {
     let total = 0;
     getAllRows().forEach(row => {
@@ -1329,12 +1489,24 @@
     return Math.round(total);
   }
 
+  function getCurrentBurned() {
+    let burned = 0;
+    getAllExerciseRows().forEach(row => {
+      if (row._cb && row._cb.checked) {
+        burned += row._cal * (parseFloat(row._qty.value) || 1);
+      }
+    });
+    return Math.round(burned);
+  }
+
   function updateTotal() {
     const total     = getCurrentTotal();
+    const burned    = getCurrentBurned();
     const target    = parseInt(document.getElementById('targetInput').value) || 0;
-    const remaining = target - total;
+    const remaining = target - total + burned;
 
-    document.getElementById('totalDisplay').textContent = total;
+    document.getElementById('totalDisplay').textContent  = total;
+    document.getElementById('burnedDisplay').textContent = burned;
     const remEl = document.getElementById('remainingDisplay');
     remEl.textContent = Math.round(remaining);
     remEl.classList.toggle('negative', remaining < 0);
@@ -1344,9 +1516,7 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
-    await loadCustomFoods();
-    await loadTodayEntries();
-    await loadEffectiveTarget();
+    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget()]);
     populateCategorySelect();
     buildList();
     showApp();
