@@ -1334,10 +1334,14 @@
     const container = document.getElementById('defaultFoodList');
     container.innerHTML = '';
 
-    // Merge default foods and custom foods into shared category groups
+    // Merge default foods and custom foods into shared category groups.
+    // Custom foods take precedence — if a custom food has the same name as a default food,
+    // skip the default one to avoid two rows with the same name (which breaks save logic).
     const groups = new Map(CATEGORIES.map(c => [c, []]));
+    const customFoodNames = new Set(customFoods.map(f => f.food_name));
 
     foods.forEach((food, index) => {
+      if (customFoodNames.has(food.name)) return; // custom version takes precedence
       const cat = food.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
