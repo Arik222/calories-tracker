@@ -1587,7 +1587,7 @@
 
     const { data } = await db
       .from('daily_summaries')
-      .select('tracking_date, calorie_balance')
+      .select('tracking_date, calorie_balance, total_calories, calorie_target')
       .eq('user_id', currentUser.id)
       .order('tracking_date', { ascending: true });
 
@@ -1596,11 +1596,29 @@
       return;
     }
 
+    // Older records may have calorie_balance = null (column added mid-development).
+    // Fall back to calorie_target - total_calories when that happens.
+    const rows = data
+      .map(d => ({
+        date:    d.tracking_date,
+        balance: d.calorie_balance ?? (
+          d.calorie_target != null && d.total_calories != null
+            ? d.calorie_target - d.total_calories
+            : null
+        ),
+      }))
+      .filter(d => d.balance !== null);
+
+    if (rows.length === 0) {
+      empty.style.display = '';
+      return;
+    }
+
     canvas.style.display = '';
     if (balanceChartInstance) { balanceChartInstance.destroy(); balanceChartInstance = null; }
 
-    const labels = data.map(d => formatDateHebrew(d.tracking_date));
-    const values = data.map(d => d.calorie_balance);
+    const labels = rows.map(d => formatDateHebrew(d.date));
+    const values = rows.map(d => d.balance);
 
     balanceChartInstance = new Chart(canvas.getContext('2d'), {
       type: 'line',
