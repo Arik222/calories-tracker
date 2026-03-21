@@ -1018,7 +1018,6 @@
         tracking_date:    activeTrackingDate,
         total_calories:   total,
         calorie_balance:  balance,
-        calorie_target:   target,
         exercise_burned:  burned,
         status:           'completed',
       },
@@ -1603,17 +1602,21 @@
 
     const { data, error } = await db
       .from('daily_summaries')
-      .select('tracking_date, calorie_balance, total_calories')
+      .select('*')
       .eq('user_id', currentUser.id)
       .order('tracking_date', { ascending: true });
+
+    console.log('Graph query result:', { data, error });
 
     if (error) { console.error('Graph load error:', error); empty.style.display = ''; return; }
     if (!data || data.length === 0) { empty.style.display = ''; return; }
 
-    // Use calorie_balance when available; skip rows where it's null
+    // Use calorie_balance when available; skip rows where it's null or missing
     const rows = data
-      .map(d => ({ date: d.tracking_date, balance: d.calorie_balance }))
-      .filter(d => d.balance !== null);
+      .map(d => ({ date: d.tracking_date, balance: d.calorie_balance ?? null }))
+      .filter(d => d.date != null && d.balance != null);
+
+    console.log('Graph rows after filter:', rows);
 
     if (rows.length === 0) { empty.style.display = ''; return; }
 
@@ -1656,8 +1659,8 @@
         scales: {
           y: {
             grid: {
-              color: ctx => ctx.tick.value === 0 ? '#444' : '#f0f0f0',
-              lineWidth: ctx => ctx.tick.value === 0 ? 2 : 1,
+              color: ctx => (ctx.tick && ctx.tick.value === 0) ? '#444' : '#f0f0f0',
+              lineWidth: ctx => (ctx.tick && ctx.tick.value === 0) ? 2 : 1,
             },
             ticks: { callback: v => v + ' קל׳' },
           },
