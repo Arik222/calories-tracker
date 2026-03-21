@@ -1048,6 +1048,7 @@
     await Promise.all([
       db.from('daily_food_entries').delete().eq('user_id', currentUser.id).eq('date', activeTrackingDate),
       db.from('daily_exercise_entries').delete().eq('user_id', currentUser.id).eq('date', activeTrackingDate),
+      db.from('daily_summaries').delete().eq('user_id', currentUser.id).eq('tracking_date', activeTrackingDate),
     ]);
     todayEntries = {};
     exerciseEntries = {};
@@ -1604,6 +1605,7 @@
       .from('daily_summaries')
       .select('*')
       .eq('user_id', currentUser.id)
+      .eq('status', 'completed')
       .order('tracking_date', { ascending: true });
 
     console.log('Graph query result:', { data, error });
