@@ -290,6 +290,28 @@
     .exercise-item input[type="number"]:focus { outline: none; border-color: #1565c0; }
     .exercise-item.unchecked .name,
     .exercise-item.unchecked .cal-badge { opacity: 0.45; }
+
+    /* ---------- Auth mode toggle ---------- */
+    .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #888; }
+    .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
+    .measure-row { display: flex; gap: 8px; }
+    .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; direction: ltr; text-align: left; }
+    .measure-row input:focus { outline: none; border-color: #2d6a4f; }
+    .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; }
+    .measure-row select:focus { outline: none; border-color: #2d6a4f; }
+
+    /* ---------- Settings tab ---------- */
+    .settings-danger-zone {
+      border: 1px solid #ffcdd2; border-radius: 12px; padding: 20px;
+      background: #fff8f8;
+    }
+    .settings-danger-zone h3 { color: #c62828; margin-bottom: 8px; font-size: 1rem; }
+    .settings-danger-zone p  { color: #666; font-size: 0.9rem; margin-bottom: 16px; line-height: 1.5; }
+    .btn-delete-account {
+      background: #e53935; color: white; border: none; border-radius: 8px;
+      padding: 11px 20px; font-size: 0.95rem; cursor: pointer; font-weight: 700;
+    }
+    .btn-delete-account:active { background: #b71c1c; }
   </style>
 </head>
 <body>
@@ -301,13 +323,31 @@
 <div id="authScreen" style="display:none">
   <div class="auth-card">
     <h1>מעקב קלוריות</h1>
-    <p>התחבר כדי לשמור את הנתונים שלך</p>
+    <p id="authSubtitle">התחבר כדי לשמור את הנתונים שלך</p>
     <input type="email"    id="emailInput"    placeholder="אימייל"  autocomplete="email" />
     <input type="password" id="passwordInput" placeholder="סיסמה" autocomplete="current-password" />
+    <div id="signupFields" style="display:none">
+      <div class="measure-row">
+        <input type="number" id="heightInput" placeholder="גובה" min="1" step="0.1" />
+        <select id="heightUnit">
+          <option value="cm">ס"מ</option>
+          <option value="inch">אינץ'</option>
+        </select>
+      </div>
+      <div class="measure-row">
+        <input type="number" id="weightInput" placeholder="משקל" min="1" step="0.1" />
+        <select id="weightUnit">
+          <option value="kg">ק"ג</option>
+          <option value="lb">פאונד</option>
+        </select>
+      </div>
+    </div>
     <div id="authError"></div>
     <div id="authSuccess"></div>
-    <button class="btn-signin" onclick="signIn()">התחברות</button>
-    <button class="btn-signup" onclick="signUp()">הרשמה</button>
+    <button id="btnSignIn" class="btn-signin" onclick="signIn()">התחברות</button>
+    <button id="btnSignUp" class="btn-signup" onclick="signUp()" style="display:none">הרשמה</button>
+    <p class="auth-mode-toggle" id="toSignup">אין לך חשבון? <a href="#" onclick="setAuthMode('signup'); return false;">הרשמה</a></p>
+    <p class="auth-mode-toggle" id="toSignin" style="display:none">כבר יש לך חשבון? <a href="#" onclick="setAuthMode('signin'); return false;">התחברות</a></p>
   </div>
 </div>
 
@@ -341,8 +381,9 @@
 
   <main>
     <div class="tab-bar">
-      <button class="tab-btn active" id="tabTracker" onclick="switchTab('tracker')">מעקב יומי</button>
-      <button class="tab-btn"        id="tabGraphs"  onclick="switchTab('graphs')">גרפים</button>
+      <button class="tab-btn active" id="tabTracker"  onclick="switchTab('tracker')">מעקב יומי</button>
+      <button class="tab-btn"        id="tabGraphs"   onclick="switchTab('graphs')">גרפים</button>
+      <button class="tab-btn"        id="tabSettings" onclick="switchTab('settings')">הגדרות</button>
     </div>
 
     <div id="trackerView">
@@ -385,6 +426,17 @@
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#888; padding:40px 0; font-size:0.95rem;">
           אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
+        </div>
+      </section>
+    </div>
+
+    <div id="settingsView" style="display:none">
+      <section>
+        <h2>הגדרות חשבון</h2>
+        <div class="settings-danger-zone">
+          <h3>מחיקת חשבון</h3>
+          <p>מחיקת החשבון תמחק את כל הנתונים שלך לצמיתות — מזון, פעילות גופנית, גרפים ומוצרים מותאמים אישית. פעולה זו בלתי הפיכה.</p>
+          <button class="btn-delete-account" onclick="deleteAccount()">מחק חשבון</button>
         </div>
       </section>
     </div>
@@ -742,11 +794,35 @@
     document.getElementById('authSuccess').textContent = '';
   }
 
+  function setAuthMode(mode) {
+    const isSignup = mode === 'signup';
+    document.getElementById('signupFields').style.display = isSignup ? '' : 'none';
+    document.getElementById('btnSignIn').style.display    = isSignup ? 'none' : '';
+    document.getElementById('btnSignUp').style.display    = isSignup ? '' : 'none';
+    document.getElementById('toSignup').style.display     = isSignup ? 'none' : '';
+    document.getElementById('toSignin').style.display     = isSignup ? '' : 'none';
+    document.getElementById('authSubtitle').textContent   = isSignup ? 'צור חשבון חדש' : 'התחבר כדי לשמור את הנתונים שלך';
+    clearAuthMessages();
+  }
+
   async function signUp() {
     clearAuthMessages();
     const email    = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
-    const { error } = await db.auth.signUp({ email, password });
+
+    const heightVal  = parseFloat(document.getElementById('heightInput').value) || null;
+    const heightUnit = document.getElementById('heightUnit').value;
+    const weightVal  = parseFloat(document.getElementById('weightInput').value) || null;
+    const weightUnit = document.getElementById('weightUnit').value;
+
+    const heightCm = heightVal ? (heightUnit === 'inch' ? Math.round(heightVal * 2.54 * 10) / 10 : heightVal) : null;
+    const weightKg = weightVal ? (weightUnit === 'lb'   ? Math.round(weightVal * 0.453592 * 10) / 10 : weightVal) : null;
+
+    const { error } = await db.auth.signUp({
+      email,
+      password,
+      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit } },
+    });
     if (error) {
       document.getElementById('authError').textContent = error.message;
     } else {
@@ -773,6 +849,20 @@
     await db.auth.signOut();
   }
 
+  async function deleteAccount() {
+    const confirmed = confirm('האם אתה בטוח שברצונך למחוק את חשבונך?\nכל הנתונים שלך יימחקו לצמיתות ולא ניתן יהיה לשחזרם.');
+    if (!confirmed) return;
+
+    await db.rpc('delete_my_account').catch(() => {});
+    await db.auth.signOut().catch(() => {});
+
+    currentUser        = null;
+    activeTrackingDate = null;
+    todayEntries       = {};
+    exerciseEntries    = {};
+    showAuth();
+  }
+
   // ─── Profile (calorie target) ─────────────────────────────────
   async function loadProfile() {
     const { data } = await db
@@ -784,7 +874,16 @@
     if (data) {
       profileTarget = data.daily_calorie_target;
     } else {
-      await db.from('profiles').insert({ id: currentUser.id, daily_calorie_target: 2300 });
+      // New user — save height/weight from signup metadata
+      const meta = currentUser.user_metadata || {};
+      await db.from('profiles').insert({
+        id:                   currentUser.id,
+        daily_calorie_target: 2300,
+        height_cm:            meta.height_cm   || null,
+        weight_kg:            meta.weight_kg   || null,
+        height_unit:          meta.height_unit || 'cm',
+        weight_unit:          meta.weight_unit || 'kg',
+      });
     }
     document.getElementById('targetInput').value = profileTarget;
   }
@@ -1584,10 +1683,12 @@
 
   // ─── Tab navigation ──────────────────────────────────────────
   function switchTab(tab) {
-    document.getElementById('trackerView').style.display = tab === 'tracker' ? '' : 'none';
-    document.getElementById('graphsView').style.display  = tab === 'graphs'  ? '' : 'none';
-    document.getElementById('tabTracker').classList.toggle('active', tab === 'tracker');
-    document.getElementById('tabGraphs').classList.toggle('active',  tab === 'graphs');
+    document.getElementById('trackerView').style.display  = tab === 'tracker'  ? '' : 'none';
+    document.getElementById('graphsView').style.display   = tab === 'graphs'   ? '' : 'none';
+    document.getElementById('settingsView').style.display = tab === 'settings' ? '' : 'none';
+    document.getElementById('tabTracker').classList.toggle('active',  tab === 'tracker');
+    document.getElementById('tabGraphs').classList.toggle('active',   tab === 'graphs');
+    document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
     if (tab === 'graphs') loadAndRenderGraphs();
   }
 
