@@ -1120,7 +1120,7 @@
     const balance = target - total + burned;
 
     // 3. Save final summary for this day
-    await db.from('daily_summaries').upsert(
+    const { error: summaryError } = await db.from('daily_summaries').upsert(
       {
         user_id:          currentUser.id,
         tracking_date:    activeTrackingDate,
@@ -1131,6 +1131,13 @@
       },
       { onConflict: 'user_id,tracking_date' }
     );
+
+    if (summaryError) {
+      console.error('finalizeDay summary error:', summaryError);
+      alert('שגיאה בשמירת סיכום היום: ' + summaryError.message);
+      btn.disabled = false;
+      return;
+    }
 
     // 4. Advance the active tracking date by exactly one day
     activeTrackingDate = addOneDay(activeTrackingDate);
