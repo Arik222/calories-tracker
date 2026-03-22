@@ -341,6 +341,13 @@
           <option value="lb">פאונד</option>
         </select>
       </div>
+      <input type="number" id="ageInput" placeholder="גיל" min="1" max="120" />
+      <select id="genderInput" style="padding:12px 14px;border:1px solid #ccc;border-radius:8px;font-size:1rem;background:white;width:100%;">
+        <option value="">מגדר</option>
+        <option value="male">זכר</option>
+        <option value="female">נקבה</option>
+        <option value="other">אחר</option>
+      </select>
     </div>
     <div id="authError"></div>
     <div id="authSuccess"></div>
@@ -814,6 +821,8 @@
     const heightUnit = document.getElementById('heightUnit').value;
     const weightVal  = parseFloat(document.getElementById('weightInput').value) || null;
     const weightUnit = document.getElementById('weightUnit').value;
+    const age        = parseInt(document.getElementById('ageInput').value)   || null;
+    const gender     = document.getElementById('genderInput').value          || null;
 
     const heightCm = heightVal ? (heightUnit === 'inch' ? Math.round(heightVal * 2.54 * 10) / 10 : heightVal) : null;
     const weightKg = weightVal ? (weightUnit === 'lb'   ? Math.round(weightVal * 0.453592 * 10) / 10 : weightVal) : null;
@@ -821,7 +830,7 @@
     const { error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit } },
+      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender } },
     });
     if (error) {
       document.getElementById('authError').textContent = error.message;
@@ -883,6 +892,8 @@
         weight_kg:            meta.weight_kg   || null,
         height_unit:          meta.height_unit || 'cm',
         weight_unit:          meta.weight_unit || 'kg',
+        age:                  meta.age         || null,
+        gender:               meta.gender      || null,
       });
     }
     document.getElementById('targetInput').value = profileTarget;
