@@ -365,8 +365,8 @@
     <div class="header-top">
       <div class="date-corner">
         <span class="date-label">התאריך הפעיל: <span id="activeDateDisplay">—</span></span>
-        <button class="btn-change-date" onclick="openDatePicker()">להחלפת תאריך לחץ כאן</button>
-        <input type="date" id="datePicker" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;" onchange="onDatePickerChange(this.value)" />
+        <label for="datePicker" class="btn-change-date">להחלפת תאריך לחץ כאן</label>
+        <input type="date" id="datePicker" style="visibility:hidden;position:absolute;width:0;height:0;" onchange="onDatePickerChange(this.value)" />
       </div>
       <h1>מערכת לניהול קלוריות</h1>
       <div class="header-right" style="flex:1">
@@ -689,6 +689,8 @@
   function updateActiveDateDisplay() {
     document.getElementById('activeDateDisplay').textContent =
       activeTrackingDate ? formatDateHebrew(activeTrackingDate) : '—';
+    const picker = document.getElementById('datePicker');
+    if (picker && activeTrackingDate) picker.value = activeTrackingDate;
   }
 
   // ─── Unsaved changes detection ────────────────────────────────
@@ -743,18 +745,6 @@
   }
 
   // ─── Date picker ──────────────────────────────────────────────
-  function openDatePicker() {
-    const picker = document.getElementById('datePicker');
-    picker.value = activeTrackingDate || '';
-    picker.style.pointerEvents = '';
-    try {
-      picker.showPicker();
-    } catch (e) {
-      picker.click();
-    }
-    picker.style.pointerEvents = 'none';
-  }
-
   async function onDatePickerChange(value) {
     if (value && value !== activeTrackingDate) {
       await requestDateSwitch(value);
