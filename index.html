@@ -88,7 +88,10 @@
       background: rgba(255,255,255,0.25); color: white;
       border: 1px solid rgba(255,255,255,0.5); border-radius: 6px;
       padding: 3px 8px; font-size: 0.75rem; cursor: pointer; white-space: nowrap;
+      font-family: inherit; appearance: none; -webkit-appearance: none;
+      color-scheme: dark;
     }
+    .btn-change-date::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.8; cursor: pointer; }
     .btn-change-date:active { background: rgba(255,255,255,0.4); }
 
     /* ---------- Unsaved changes modal ---------- */
@@ -365,8 +368,7 @@
     <div class="header-top">
       <div class="date-corner">
         <span class="date-label">התאריך הפעיל: <span id="activeDateDisplay">—</span></span>
-        <label for="datePicker" class="btn-change-date">להחלפת תאריך לחץ כאן</label>
-        <input type="date" id="datePicker" style="visibility:hidden;position:absolute;width:0;height:0;" onchange="onDatePickerChange(this.value)" />
+        <input type="date" id="datePicker" class="btn-change-date" onchange="onDatePickerChange(this.value)" />
       </div>
       <h1>מערכת לניהול קלוריות</h1>
       <div class="header-right" style="flex:1">
