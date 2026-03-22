@@ -366,7 +366,7 @@
       <div class="date-corner">
         <span class="date-label">התאריך הפעיל: <span id="activeDateDisplay">—</span></span>
         <button class="btn-change-date" onclick="openDatePicker()">להחלפת תאריך לחץ כאן</button>
-        <input type="date" id="datePicker" style="display:none" onchange="onDatePickerChange(this.value)" />
+        <input type="date" id="datePicker" style="position:absolute;opacity:0;width:0;height:0;pointer-events:none;" onchange="onDatePickerChange(this.value)" />
       </div>
       <h1>מערכת לניהול קלוריות</h1>
       <div class="header-right" style="flex:1">
@@ -746,7 +746,13 @@
   function openDatePicker() {
     const picker = document.getElementById('datePicker');
     picker.value = activeTrackingDate || '';
-    picker.showPicker();
+    picker.style.pointerEvents = '';
+    try {
+      picker.showPicker();
+    } catch (e) {
+      picker.click();
+    }
+    picker.style.pointerEvents = 'none';
   }
 
   async function onDatePickerChange(value) {
@@ -1626,22 +1632,21 @@
     addBtn.disabled    = true;
     addBtn.textContent = 'מוסיף...';
 
-    const { data, error } = await db
+    const { error } = await db
       .from('user_custom_foods')
       .upsert(
         { user_id: currentUser.id, food_name: name, calories_per_unit: cal, unit, category: cat },
         { onConflict: 'user_id,food_name' }
-      )
-      .select()
-      .single();
+      );
 
     addBtn.disabled    = false;
     addBtn.textContent = 'הוסף';
 
     if (error) { console.error('addCustomItem error:', error); alert('שגיאה בשמירת המוצר: ' + error.message); return; }
 
+    const newEntry = { user_id: currentUser.id, food_name: name, calories_per_unit: cal, unit, category: cat };
     const idx = customFoods.findIndex(f => f.food_name === name);
-    if (idx >= 0) customFoods[idx] = data; else customFoods.push(data);
+    if (idx >= 0) customFoods[idx] = newEntry; else customFoods.push(newEntry);
 
     nameEl.value = '';
     calEl.value  = '';
