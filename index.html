@@ -4,9 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>מעקב קלוריות</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; direction: rtl; }
+    body { font-family: 'Heebo', 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; direction: rtl; }
 
     /* ---------- Loading overlay ---------- */
     #loadingOverlay {
@@ -16,37 +19,90 @@
       font-size: 1.2rem; color: #2d6a4f; z-index: 100;
     }
 
-    /* ---------- Auth screen ---------- */
-    #authScreen {
-      min-height: 100vh;
+    /* ---------- Auth screen — redesigned ---------- */
+    #authScreen { min-height: 100vh; display: flex; padding: 0; }
+
+    /* Left branding panel */
+    .auth-panel-left {
+      flex: 1;
+      background: linear-gradient(150deg, #1b4332 0%, #2d6a4f 55%, #40916c 100%);
       display: flex; align-items: center; justify-content: center;
-      padding: 20px;
+      padding: 60px 56px; position: relative; overflow: hidden;
     }
-    .auth-card {
-      background: white; border-radius: 16px;
-      padding: 32px 24px; width: 100%; max-width: 360px;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
-      display: flex; flex-direction: column; gap: 14px;
+    .auth-deco { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.06); }
+    .auth-deco-1 { width: 520px; height: 520px; top: -160px; right: -160px; }
+    .auth-deco-2 { width: 360px; height: 360px; bottom: -110px; left: -90px; }
+    .auth-deco-3 { width: 180px; height: 180px; top: 42%; left: 12%; background: rgba(255,255,255,0.04); }
+
+    .auth-brand {
+      position: relative; z-index: 1; color: white;
+      direction: rtl; text-align: right; max-width: 400px;
     }
-    .auth-card h1 { text-align: center; color: #2d6a4f; font-size: 1.5rem; margin-bottom: 4px; }
-    .auth-card p  { text-align: center; color: #888; font-size: 0.9rem; }
-    .auth-card input {
-      padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px;
-      font-size: 1rem; width: 100%; direction: ltr; text-align: left;
+    .auth-brand-icon { font-size: 3.8rem; display: block; margin-bottom: 18px; }
+    .auth-brand h1 { font-size: 2.6rem; font-weight: 900; color: white; margin-bottom: 12px; line-height: 1.2; }
+    .auth-brand-tagline { font-size: 1.08rem; opacity: 0.8; line-height: 1.75; margin-bottom: 44px; color: white; }
+    .auth-feat-list { list-style: none; display: flex; flex-direction: column; gap: 15px; }
+    .auth-feat-list li { display: flex; align-items: center; gap: 12px; font-size: 0.97rem; opacity: 0.88; }
+    .auth-feat-icon {
+      width: 34px; height: 34px; border-radius: 9px;
+      background: rgba(255,255,255,0.15); display: flex;
+      align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;
     }
-    .auth-card input:focus { outline: none; border-color: #2d6a4f; }
-    .btn-signin {
-      background: #2d6a4f; color: white; border: none; border-radius: 8px;
-      padding: 13px; font-size: 1rem; cursor: pointer; font-weight: 700;
+
+    /* Right form panel */
+    .auth-panel-right {
+      width: 460px; background: #f7f9f7;
+      display: flex; align-items: center; justify-content: center; padding: 60px 48px;
     }
-    .btn-signup {
-      background: white; color: #2d6a4f; border: 2px solid #2d6a4f; border-radius: 8px;
-      padding: 11px; font-size: 1rem; cursor: pointer; font-weight: 700;
+    .auth-form-box { width: 100%; max-width: 340px; direction: rtl; }
+    .auth-form-title { font-size: 1.75rem; font-weight: 800; color: #1b4332; margin-bottom: 5px; }
+    .auth-form-subtitle { color: #aaa; font-size: 0.88rem; margin-bottom: 30px; }
+    .auth-fields { display: flex; flex-direction: column; gap: 13px; }
+
+    .auth-form-box input,
+    .auth-form-box select {
+      padding: 13px 16px; border: 1.5px solid #e4e8e4; border-radius: 10px;
+      font-size: 0.97rem; width: 100%; background: white; font-family: inherit;
+      color: #222; transition: border-color 0.18s, box-shadow 0.18s;
     }
-    .btn-signin:active { background: #1b4332; }
-    .btn-signup:active { background: #e8f5e9; }
+    .auth-form-box input[type="email"],
+    .auth-form-box input[type="password"] { direction: ltr; text-align: left; }
+    .auth-form-box input:focus,
+    .auth-form-box select:focus {
+      outline: none; border-color: #2d6a4f;
+      box-shadow: 0 0 0 3px rgba(45,106,79,0.1);
+    }
+    .btn-auth-primary {
+      background: linear-gradient(135deg, #2d6a4f 0%, #40916c 100%);
+      color: white; border: none; border-radius: 10px;
+      padding: 14px; font-size: 1rem; cursor: pointer; font-weight: 700;
+      width: 100%; font-family: inherit;
+      transition: opacity 0.18s, transform 0.12s; letter-spacing: 0.01em;
+    }
+    .btn-auth-primary:hover  { opacity: 0.91; }
+    .btn-auth-primary:active { transform: scale(0.98); }
     #authError   { color: #e53935; font-size: 0.88rem; text-align: center; min-height: 18px; }
     #authSuccess { color: #2d6a4f; font-size: 0.88rem; text-align: center; min-height: 18px; }
+
+    /* Auth mode toggle link */
+    .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #bbb; }
+    .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
+    .auth-mode-toggle a:hover { text-decoration: underline; }
+
+    /* Measure row (height/weight) */
+    .measure-row { display: flex; gap: 8px; direction: ltr; }
+    .measure-row input  { flex: 1; }
+    .measure-row select { flex: none; width: 88px; direction: rtl; }
+
+    /* Mobile */
+    @media (max-width: 780px) {
+      #authScreen { flex-direction: column; }
+      .auth-panel-left { padding: 32px 24px; flex: none; }
+      .auth-brand-tagline, .auth-feat-list { display: none; }
+      .auth-brand h1 { font-size: 1.8rem; margin-bottom: 0; }
+      .auth-brand-icon { font-size: 2.6rem; margin-bottom: 10px; }
+      .auth-panel-right { width: 100%; padding: 32px 24px; flex: 1; background: white; }
+    }
 
     /* ---------- App: header ---------- */
     header { background: #2d6a4f; color: white; padding: 14px 20px 14px; }
@@ -342,41 +398,71 @@
 
 <!-- ==================== AUTH SCREEN ==================== -->
 <div id="authScreen" style="display:none">
-  <div class="auth-card">
-    <h1>מעקב קלוריות</h1>
-    <p id="authSubtitle">התחבר כדי לשמור את הנתונים שלך</p>
-    <input type="email"    id="emailInput"    placeholder="אימייל"  autocomplete="email" />
-    <input type="password" id="passwordInput" placeholder="סיסמה" autocomplete="current-password" />
-    <div id="signupFields" style="display:none">
-      <div class="measure-row">
-        <input type="number" id="heightInput" placeholder="גובה" min="1" step="0.1" />
-        <select id="heightUnit">
-          <option value="cm">ס"מ</option>
-          <option value="inch">אינץ'</option>
-        </select>
-      </div>
-      <div class="measure-row">
-        <input type="number" id="weightInput" placeholder="משקל" min="1" step="0.1" />
-        <select id="weightUnit">
-          <option value="kg">ק"ג</option>
-          <option value="lb">פאונד</option>
-        </select>
-      </div>
-      <input type="number" id="ageInput" placeholder="גיל" min="1" max="120" />
-      <select id="genderInput" style="padding:12px 14px;border:1px solid #ccc;border-radius:8px;font-size:1rem;background:white;width:100%;direction:rtl;">
-        <option value="">מגדר</option>
-        <option value="male">זכר</option>
-        <option value="female">נקבה</option>
-        <option value="other">אחר</option>
-      </select>
+
+  <!-- Left branding panel -->
+  <div class="auth-panel-left">
+    <div class="auth-deco auth-deco-1"></div>
+    <div class="auth-deco auth-deco-2"></div>
+    <div class="auth-deco auth-deco-3"></div>
+    <div class="auth-brand">
+      <span class="auth-brand-icon">🥗</span>
+      <h1>מעקב קלוריות</h1>
+      <p class="auth-brand-tagline">נהל את התזונה שלך בחכמה.<br>עקוב, נתח, והתקדם.</p>
+      <ul class="auth-feat-list">
+        <li><span class="auth-feat-icon">📊</span> מאזן קלורי יומי וגרפים</li>
+        <li><span class="auth-feat-icon">🏃</span> מעקב אחר פעילות גופנית</li>
+        <li><span class="auth-feat-icon">🎯</span> יעד קלורי אישי מותאם</li>
+        <li><span class="auth-feat-icon">💪</span> הודעות מוטיבציה יומיות</li>
+      </ul>
     </div>
-    <div id="authError"></div>
-    <div id="authSuccess"></div>
-    <button id="btnSignIn" class="btn-signin" onclick="signIn()">התחברות</button>
-    <button id="btnSignUp" class="btn-signup" onclick="signUp()" style="display:none">הרשמה</button>
-    <p class="auth-mode-toggle" id="toSignup">אין לך חשבון? <a href="#" onclick="setAuthMode('signup'); return false;">הרשמה</a></p>
-    <p class="auth-mode-toggle" id="toSignin" style="display:none">כבר יש לך חשבון? <a href="#" onclick="setAuthMode('signin'); return false;">התחברות</a></p>
   </div>
+
+  <!-- Right form panel -->
+  <div class="auth-panel-right">
+    <div class="auth-form-box">
+      <h2 class="auth-form-title" id="authFormTitle">ברוך הבא</h2>
+      <p class="auth-form-subtitle" id="authSubtitle">התחבר כדי לשמור את הנתונים שלך</p>
+
+      <div class="auth-fields">
+        <input type="email"    id="emailInput"    placeholder="אימייל"  autocomplete="email" />
+        <input type="password" id="passwordInput" placeholder="סיסמה" autocomplete="current-password" />
+
+        <div id="signupFields" style="display:none; flex-direction:column; gap:13px;">
+          <div class="measure-row">
+            <input type="number" id="heightInput" placeholder="גובה" min="1" step="0.1" />
+            <select id="heightUnit">
+              <option value="cm">ס"מ</option>
+              <option value="inch">אינץ'</option>
+            </select>
+          </div>
+          <div class="measure-row">
+            <input type="number" id="weightInput" placeholder="משקל" min="1" step="0.1" />
+            <select id="weightUnit">
+              <option value="kg">ק"ג</option>
+              <option value="lb">פאונד</option>
+            </select>
+          </div>
+          <input type="number" id="ageInput" placeholder="גיל" min="1" max="120" />
+          <select id="genderInput" style="direction:rtl;">
+            <option value="">מגדר</option>
+            <option value="male">זכר</option>
+            <option value="female">נקבה</option>
+            <option value="other">אחר</option>
+          </select>
+        </div>
+
+        <div id="authError"></div>
+        <div id="authSuccess"></div>
+
+        <button id="btnSignIn" class="btn-auth-primary" onclick="signIn()">התחברות</button>
+        <button id="btnSignUp" class="btn-auth-primary" onclick="signUp()" style="display:none">הרשמה</button>
+
+        <p class="auth-mode-toggle" id="toSignup">אין לך חשבון? <a href="#" onclick="setAuthMode('signup'); return false;">הרשמה</a></p>
+        <p class="auth-mode-toggle" id="toSignin" style="display:none">כבר יש לך חשבון? <a href="#" onclick="setAuthMode('signin'); return false;">התחברות</a></p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <!-- ==================== APP SCREEN ==================== -->
@@ -829,12 +915,13 @@
 
   function setAuthMode(mode) {
     const isSignup = mode === 'signup';
-    document.getElementById('signupFields').style.display = isSignup ? '' : 'none';
+    document.getElementById('signupFields').style.display = isSignup ? 'flex' : 'none';
     document.getElementById('btnSignIn').style.display    = isSignup ? 'none' : '';
     document.getElementById('btnSignUp').style.display    = isSignup ? '' : 'none';
     document.getElementById('toSignup').style.display     = isSignup ? 'none' : '';
     document.getElementById('toSignin').style.display     = isSignup ? '' : 'none';
-    document.getElementById('authSubtitle').textContent   = isSignup ? 'צור חשבון חדש' : 'התחבר כדי לשמור את הנתונים שלך';
+    document.getElementById('authFormTitle').textContent  = isSignup ? 'יצירת חשבון' : 'ברוך הבא';
+    document.getElementById('authSubtitle').textContent   = isSignup ? 'מלא את הפרטים כדי להתחיל' : 'התחבר כדי לשמור את הנתונים שלך';
     clearAuthMessages();
   }
 
