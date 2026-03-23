@@ -890,12 +890,7 @@
 
     await db.rpc('delete_my_account').catch(() => {});
     await db.auth.signOut().catch(() => {});
-
-    currentUser        = null;
-    activeTrackingDate = null;
-    todayEntries       = {};
-    exerciseEntries    = {};
-    showAuth();
+    location.reload();
   }
 
   // ─── Profile (calorie target) ─────────────────────────────────
