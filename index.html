@@ -297,10 +297,10 @@
     /* ---------- Auth mode toggle ---------- */
     .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #888; }
     .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
-    .measure-row { display: flex; gap: 8px; }
-    .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; direction: ltr; text-align: left; }
+    .measure-row { display: flex; gap: 8px; direction: ltr; }
+    .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; text-align: left; }
     .measure-row input:focus { outline: none; border-color: #2d6a4f; }
-    .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; }
+    .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; direction: rtl; }
     .measure-row select:focus { outline: none; border-color: #2d6a4f; }
 
     /* ---------- Motivation modal ---------- */
@@ -363,7 +363,7 @@
         </select>
       </div>
       <input type="number" id="ageInput" placeholder="גיל" min="1" max="120" />
-      <select id="genderInput" style="padding:12px 14px;border:1px solid #ccc;border-radius:8px;font-size:1rem;background:white;width:100%;">
+      <select id="genderInput" style="padding:12px 14px;border:1px solid #ccc;border-radius:8px;font-size:1rem;background:white;width:100%;direction:rtl;">
         <option value="">מגדר</option>
         <option value="male">זכר</option>
         <option value="female">נקבה</option>
