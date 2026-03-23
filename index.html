@@ -303,6 +303,24 @@
     .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; }
     .measure-row select:focus { outline: none; border-color: #2d6a4f; }
 
+    /* ---------- Motivation modal ---------- */
+    .motivation-card {
+      background: white; border-radius: 16px;
+      padding: 32px 28px; width: 100%; max-width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column; gap: 20px;
+      direction: rtl; text-align: right;
+    }
+    .motivation-card p {
+      font-size: 1.15rem; line-height: 1.7; color: #222; margin: 0;
+    }
+    .btn-motivation {
+      background: #2d6a4f; color: white; border: none; border-radius: 10px;
+      padding: 13px; font-size: 1rem; cursor: pointer; font-weight: 700;
+      align-self: stretch;
+    }
+    .btn-motivation:active { background: #1b4332; }
+
     /* ---------- Settings tab ---------- */
     .settings-danger-zone {
       border: 1px solid #ffcdd2; border-radius: 12px; padding: 20px;
@@ -462,6 +480,16 @@
         <button class="modal-btn-save"   onclick="modalRespond('save')">שמור והמשך</button>
         <button class="modal-btn-skip"   onclick="modalRespond('skip')">המשך בלי לשמור</button>
         <button class="modal-btn-cancel" onclick="modalRespond('cancel')">ביטול</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Motivation modal -->
+  <div id="motivationModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="motivation-card">
+        <p id="motivationText"></p>
+        <button id="motivationBtn" class="btn-motivation" onclick="closeMotivationModal()"></button>
       </div>
     </div>
   </div>
@@ -1139,6 +1167,9 @@
       return;
     }
 
+    // Show motivational message, wait for user to dismiss
+    await showMotivationModal(balance);
+
     // 4. Advance the active tracking date by exactly one day
     activeTrackingDate = addOneDay(activeTrackingDate);
     await db.from('user_tracking_state').upsert({
@@ -1705,6 +1736,92 @@
     document.getElementById('tabGraphs').classList.toggle('active',   tab === 'graphs');
     document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
     if (tab === 'graphs') loadAndRenderGraphs();
+  }
+
+  // ─── Motivation modal ─────────────────────────────────────────
+  const POSITIVE_MESSAGES = [
+    'וואו! אתה מפציץ היום 🔥 מאזן חיובי כמו גדול.',
+    'איזה יופי! יום נקי ומדויק, אהבתי.',
+    'ככה עושים את זה! פשוט תענוג לראות.',
+    'אתה בעניינים לגמרי היום 💪',
+    'בום! עוד יום מוצלח נסגר.',
+    'אלוף! הגוף שלך מודה לך עכשיו.',
+    'אתה על הגל 🌊 אל תרד ממנו!',
+    'איזה כיף לראות יום כזה.',
+    'זה נראה קל כשאתה עושה את זה ככה.',
+    'אתה מבין את המשחק כבר 😎',
+    'יום מדויק! אין תלונות.',
+    'כל הכבוד, זה פשוט עובד לך.',
+    'וואלה? שוב הצלחת? יפה!',
+    'אתה לא משחק משחקים היום, אה?',
+    'זה בדיוק הווייב שאנחנו רוצים.',
+    'אתה בכיוון הנכון, ובגדול.',
+    'עוד יום כזה ואתה מסודר.',
+    'נראה שאתה שולט בעניינים.',
+    'זה לא מזל — זה אתה.',
+    'פשוט עבודה נקייה.',
+    'אתה נותן פה הופעה.',
+    'ככה מתקדמים באמת.',
+    'יום כזה שווה צילום מסך 📸',
+    'אתה עושה את זה נכון, נקודה.',
+    'וואו, איזה שליטה.',
+    'אתה כבר רגיל לנצח אה?',
+    'כן כן, זה נראה מעולה.',
+    'אתה ממש על זה היום.',
+    'זה מרגיש טוב, נכון?',
+    'סחתיין! יום לפנתיאון.',
+  ];
+
+  const NEGATIVE_MESSAGES = [
+    'טוב... זה היה טעים לפחות? 😅 מחר חוזרים לעצמנו.',
+    'היום קצת התפזרנו... לא נורא, מחר מתקנים.',
+    'לא יום שיא, אבל גם לא סיפור. ממשיכים.',
+    'קורה לכולם, גם לטובים ביותר 😉',
+    'טוב, לא מושלם... אבל אנחנו לא מוותרים.',
+    'מחר עושים ריסט קטן וחוזרים חזק.',
+    'זה היה יום של "יאללה שיהיה"... מחר פחות 😄',
+    'לא נורא, הגוף לא שכח איך לרדת במשקל.',
+    'היום פחות, מחר יותר טוב. סגור.',
+    'בסדר, אז קצת חרגנו... קורה.',
+    'יום כזה לא עוצר אותך.',
+    'לא להתרגש — ממשיכים קדימה.',
+    'זה חלק מהמשחק.',
+    'אתה עדיין במשחק, וזה מה שחשוב.',
+    'מחר זה יום חדש לגמרי.',
+    'לא קרה כלום, רק לא להמשיך ככה 😅',
+    'קצת בלגן היום... מסדרים מחר.',
+    'בסדר, אז נהנינו קצת יותר מדי.',
+    'לא מושלם — אבל רחוק מלהיות גרוע.',
+    'מחר חוזרים להיות חדים.',
+    'זה לא היה היום שלך, וזה בסדר.',
+    'לא נורא, אף אחד לא מושלם.',
+    'מחר סוגרים את זה יפה.',
+    'קצת יצא משליטה... מחזירים שליטה.',
+    'היום זה היה "על הדרך"... מחר זה יהיה בכוונה.',
+    'לא נעים, לא נורא — קדימה.',
+    'זה לא שובר כלום.',
+    'יש גם ימים כאלה.',
+    'מחר באים יותר מוכנים.',
+    'סיימנו עם זה — ממשיכים הלאה.',
+  ];
+
+  let motivationModalResolve = null;
+
+  function showMotivationModal(balance) {
+    return new Promise(resolve => {
+      motivationModalResolve = resolve;
+      const pool   = balance >= 0 ? POSITIVE_MESSAGES : NEGATIVE_MESSAGES;
+      const msg    = pool[Math.floor(Math.random() * pool.length)];
+      const btnTxt = balance >= 0 ? 'תודה!' : 'הבנתי';
+      document.getElementById('motivationText').textContent = msg;
+      document.getElementById('motivationBtn').textContent  = btnTxt;
+      document.getElementById('motivationModal').style.display = 'block';
+    });
+  }
+
+  function closeMotivationModal() {
+    document.getElementById('motivationModal').style.display = 'none';
+    if (motivationModalResolve) { motivationModalResolve(); motivationModalResolve = null; }
   }
 
   // ─── Graphs ───────────────────────────────────────────────────
