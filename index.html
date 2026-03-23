@@ -888,7 +888,11 @@
     const confirmed = confirm('האם אתה בטוח שברצונך למחוק את חשבונך?\nכל הנתונים שלך יימחקו לצמיתות ולא ניתן יהיה לשחזרם.');
     if (!confirmed) return;
 
-    await db.rpc('delete_my_account').catch(() => {});
+    const { error: rpcError } = await db.rpc('delete_my_account');
+    if (rpcError) {
+      alert('שגיאה במחיקת החשבון: ' + rpcError.message);
+      return;
+    }
     await db.auth.signOut({ scope: 'local' }).catch(() => {});
     location.reload();
   }
