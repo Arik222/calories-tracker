@@ -889,7 +889,7 @@
     if (!confirmed) return;
 
     await db.rpc('delete_my_account').catch(() => {});
-    await db.auth.signOut().catch(() => {});
+    await db.auth.signOut({ scope: 'local' }).catch(() => {});
     location.reload();
   }
 
@@ -1915,9 +1915,9 @@
 
   async function init() {
     try {
-      const { data: { session } } = await db.auth.getSession();
-      if (session) {
-        currentUser = session.user;
+      const { data: { user }, error } = await db.auth.getUser();
+      if (user && !error) {
+        currentUser = user;
         await loadAndShowApp();
       } else {
         showAuth();
