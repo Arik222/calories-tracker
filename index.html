@@ -105,50 +105,76 @@
     }
 
     /* ---------- App: header ---------- */
-    header { background: #2d6a4f; color: white; padding: 14px 20px 14px; }
+    header {
+      background: linear-gradient(135deg, #1b4332 0%, #2d6a4f 100%);
+      color: white; padding: 14px 20px 0;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.18);
+    }
     .header-top {
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 12px; position: relative;
+      margin-bottom: 14px; position: relative;
     }
     header h1 {
-      font-size: 1.5rem; font-weight: 800;
+      font-size: 1.45rem; font-weight: 900;
       position: absolute; left: 50%; transform: translateX(-50%);
       white-space: nowrap; pointer-events: none;
       background: linear-gradient(135deg, #ffffff 0%, #95d5b2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
       background-clip: text;
-      filter: drop-shadow(0 1px 4px rgba(0,0,0,0.35));
-      letter-spacing: 0.4px;
+      filter: drop-shadow(0 1px 6px rgba(0,0,0,0.3));
+      letter-spacing: 0.5px;
     }
     .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-    #userEmail { font-size: 0.72rem; opacity: 0.75; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-logout {
-      background: rgba(255,255,255,0.18); color: white;
-      border: 1px solid rgba(255,255,255,0.35); border-radius: 6px;
-      padding: 4px 10px; font-size: 0.8rem; cursor: pointer;
+      background: rgba(255,255,255,0.14); color: white;
+      border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+      padding: 4px 11px; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+      transition: background 0.15s;
     }
-    .target-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-    .target-row label { font-size: 0.95rem; }
-    .target-row input { width: 80px; padding: 6px 8px; font-size: 1rem; border: none; border-radius: 6px; text-align: center; }
+    .btn-logout:hover { background: rgba(255,255,255,0.24); }
 
-    /* ---------- Date corner (upper right in header) ---------- */
+    /* ---------- Date corner ---------- */
     .date-corner {
-      display: flex; flex-direction: column; align-items: flex-end; gap: 5px;
-      background: rgba(255,255,255,0.15);
-      border: 1px solid rgba(255,255,255,0.35);
-      border-radius: 8px; padding: 6px 10px;
+      display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 10px; padding: 6px 12px;
     }
-    .date-corner .date-label { font-size: 0.82rem; font-weight: 700; white-space: nowrap; }
+    .date-corner .date-label { font-size: 0.78rem; font-weight: 700; white-space: nowrap; opacity: 0.85; }
     .btn-change-date {
-      background: rgba(255,255,255,0.25); color: white;
-      border: 1px solid rgba(255,255,255,0.5); border-radius: 6px;
-      padding: 3px 8px; font-size: 0.75rem; cursor: pointer; white-space: nowrap;
-      font-family: inherit; appearance: none; -webkit-appearance: none;
-      color-scheme: dark;
+      background: rgba(255,255,255,0.2); color: white;
+      border: 1px solid rgba(255,255,255,0.4); border-radius: 6px;
+      padding: 3px 9px; font-size: 0.73rem; cursor: pointer; white-space: nowrap;
+      font-family: inherit; appearance: none; -webkit-appearance: none; color-scheme: dark;
+      transition: background 0.15s;
     }
-    .btn-change-date::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.8; cursor: pointer; }
-    .btn-change-date:active { background: rgba(255,255,255,0.4); }
+    .btn-change-date::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.75; cursor: pointer; }
+    .btn-change-date:active { background: rgba(255,255,255,0.35); }
+
+    /* ---------- Stat chips row (replaces summary-bar + target-row) ---------- */
+    .stat-chips {
+      display: flex; gap: 8px; padding: 0 0 14px; overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .stat-chips::-webkit-scrollbar { display: none; }
+    .stat-chip {
+      flex: 1; min-width: 0;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 12px; padding: 10px 12px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+    }
+    .stat-chip-label { font-size: 0.68rem; opacity: 0.75; font-weight: 600; white-space: nowrap; }
+    .stat-chip-value { font-size: 1.15rem; font-weight: 800; color: white; line-height: 1.2; }
+    .stat-chip-value.negative { color: #f28b82; }
+    .stat-chip-value.positive { color: #b7e4c7; }
+    .stat-chip input[type="number"] {
+      width: 70px; background: transparent; border: none;
+      color: white; font-size: 1.15rem; font-weight: 800;
+      text-align: center; font-family: inherit; padding: 0;
+    }
+    .stat-chip input[type="number"]:focus { outline: none; }
 
     /* ---------- Unsaved changes modal ---------- */
     .modal-overlay {
@@ -168,36 +194,35 @@
     .modal-btn-skip     { background: white; color: #555; border: 1px solid #ccc; border-radius: 8px; padding: 11px; font-size: 0.95rem; cursor: pointer; }
     .modal-btn-cancel   { background: white; color: #e53935; border: 1px solid #e53935; border-radius: 8px; padding: 11px; font-size: 0.95rem; cursor: pointer; }
 
-    /* ---------- Summary bar ---------- */
-    .summary-bar {
-      background: #1b4332; color: white;
-      display: flex; justify-content: space-around;
-      padding: 10px 20px; font-size: 0.95rem; flex-wrap: wrap; gap: 6px;
-    }
-    .summary-bar span { font-weight: 600; }
-    .summary-bar .remaining.negative { color: #f28b82; }
+    /* ---------- Summary bar (legacy — hidden, replaced by stat-chips) ---------- */
+    .summary-bar { display: none; }
 
     /* ---------- Main content ---------- */
-    main { max-width: 600px; margin: 0 auto; padding: 16px 12px 100px; }
+    main { max-width: 620px; margin: 0 auto; padding: 18px 14px 110px; }
     section {
-      background: white; border-radius: 12px; padding: 16px;
-      margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      background: white; border-radius: 16px; padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04);
+      border: 1px solid rgba(0,0,0,0.04);
     }
     section h2 {
-      font-size: 1.1rem; font-weight: 700; margin-bottom: 12px;
-      color: #2d6a4f; border-bottom: 2px solid #e8f5e9; padding-bottom: 8px;
+      font-size: 1.05rem; font-weight: 800; margin-bottom: 14px;
+      color: #1b4332;
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 10px; border-bottom: 2px solid #f0f7f2;
     }
 
     /* ---------- Food rows ---------- */
-    .food-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; }
+    .food-item { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid #f5f5f5; border-radius: 6px; transition: background 0.12s; }
     .food-item:last-child { border-bottom: none; }
-    .food-item input[type="checkbox"] { width: 26px; height: 26px; accent-color: #2d6a4f; cursor: pointer; flex-shrink: 0; }
-    .food-item .name { flex: 1; font-size: 0.95rem; }
-    .food-item .cal-badge { font-size: 0.82rem; color: #666; white-space: nowrap; }
-    .food-item input[type="number"] { width: 62px; padding: 5px 4px; font-size: 0.95rem; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
-    .food-item input[type="number"]:focus { outline: none; border-color: #2d6a4f; }
+    .food-item:hover { background: #f9fdf9; }
+    .food-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: #2d6a4f; cursor: pointer; flex-shrink: 0; }
+    .food-item .name { flex: 1; font-size: 0.93rem; }
+    .food-item .cal-badge { font-size: 0.8rem; color: #999; white-space: nowrap; background: #f5f5f5; padding: 2px 7px; border-radius: 20px; }
+    .food-item input[type="number"] { width: 60px; padding: 5px 4px; font-size: 0.93rem; border: 1.5px solid #e8e8e8; border-radius: 8px; text-align: center; font-family: inherit; }
+    .food-item input[type="number"]:focus { outline: none; border-color: #2d6a4f; box-shadow: 0 0 0 2px rgba(45,106,79,0.1); }
     .food-item.unchecked .name,
-    .food-item.unchecked .cal-badge { opacity: 0.45; }
+    .food-item.unchecked .cal-badge { opacity: 0.38; }
 
     /* ---------- Search ---------- */
     .search-input {
@@ -230,21 +255,24 @@
     .btn-edit-cancel { background: none; border: none; color: #e53935; cursor: pointer; font-size: 1rem; padding: 2px 4px; flex-shrink: 0; }
 
     /* ---------- Category accordion ---------- */
-    details.cat-group { margin-bottom: 4px; }
+    details.cat-group { margin-bottom: 5px; }
     details.cat-group > summary {
       list-style: none; cursor: pointer; user-select: none;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 9px 10px; border-radius: 8px;
-      background: #e8f5e9; color: #1b4332;
-      font-weight: 700; font-size: 0.92rem;
-      border: 1px solid #c8e6c9; margin-bottom: 2px;
+      padding: 10px 12px; border-radius: 10px;
+      background: linear-gradient(135deg, #f0f9f2 0%, #e8f5e9 100%);
+      color: #1b4332; font-weight: 700; font-size: 0.9rem;
+      border: 1px solid #d4edda; margin-bottom: 3px;
+      transition: background 0.15s;
     }
+    details.cat-group > summary:hover { background: linear-gradient(135deg, #e4f5e8 0%, #ddf0e0 100%); }
     details.cat-group > summary::-webkit-details-marker { display: none; }
-    details.cat-group > summary::after { content: '▸'; font-size: 0.8rem; color: #888; }
-    details.cat-group[open] > summary::after { content: '▾'; }
+    details.cat-group > summary::after { content: '›'; font-size: 1.1rem; color: #aaa; transition: transform 0.2s; display: inline-block; }
+    details.cat-group[open] > summary::after { transform: rotate(90deg); }
     .cat-count {
-      font-size: 0.76rem; font-weight: 400; color: #555;
-      background: white; border-radius: 10px; padding: 1px 7px; margin-inline-end: 6px;
+      font-size: 0.73rem; font-weight: 500; color: #5a9e6f;
+      background: white; border-radius: 10px; padding: 1px 8px; margin-inline-end: 6px;
+      border: 1px solid #d4edda;
     }
     .cat-group .food-item:last-child { border-bottom: none; }
     .custom-form select {
@@ -298,57 +326,79 @@
 
     .btn-save {
       display: block; width: 100%;
-      background: #2d6a4f; color: white;
-      border: none; border-radius: 10px; padding: 14px;
-      font-size: 1.05rem; cursor: pointer; font-weight: 700;
+      background: linear-gradient(135deg, #2d6a4f, #40916c);
+      color: white; border: none; border-radius: 12px; padding: 14px;
+      font-size: 1rem; cursor: pointer; font-weight: 700; font-family: inherit;
+      box-shadow: 0 3px 10px rgba(45,106,79,0.3);
+      transition: opacity 0.15s, transform 0.1s;
     }
-    .btn-save:disabled { opacity: 0.6; cursor: default; }
-    .btn-save:not(:disabled):active { background: #1b4332; }
+    .btn-save:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+    .btn-save:not(:disabled):hover  { opacity: 0.92; }
+    .btn-save:not(:disabled):active { transform: scale(0.98); }
 
     .btn-finalize {
       display: block; width: 100%;
-      background: #1565c0; color: white;
-      border: none; border-radius: 10px; padding: 14px;
-      font-size: 1rem; cursor: pointer; font-weight: 700; line-height: 1.4;
+      background: linear-gradient(135deg, #1565c0, #1976d2);
+      color: white; border: none; border-radius: 12px; padding: 14px;
+      font-size: 0.97rem; cursor: pointer; font-weight: 700; line-height: 1.4;
+      font-family: inherit; box-shadow: 0 3px 10px rgba(21,101,192,0.3);
+      transition: opacity 0.15s, transform 0.1s;
     }
-    .btn-finalize:disabled { opacity: 0.6; cursor: default; }
-    .btn-finalize:not(:disabled):active { background: #0d47a1; }
+    .btn-finalize:disabled { opacity: 0.55; cursor: default; box-shadow: none; }
+    .btn-finalize:not(:disabled):hover  { opacity: 0.92; }
+    .btn-finalize:not(:disabled):active { transform: scale(0.98); }
 
     .btn-reset {
       display: block; width: 100%;
-      background: white; color: #e53935;
-      border: 2px solid #e53935; border-radius: 10px; padding: 12px;
-      font-size: 0.95rem; cursor: pointer; font-weight: 700;
+      background: white; color: #c62828;
+      border: 1.5px solid #ef9a9a; border-radius: 12px; padding: 12px;
+      font-size: 0.93rem; cursor: pointer; font-weight: 700; font-family: inherit;
+      transition: background 0.15s;
     }
+    .btn-reset:hover  { background: #fff5f5; }
     .btn-reset:active { background: #fdecea; }
 
     /* ---------- Tab bar ---------- */
     .tab-bar {
-      display: flex; background: white; border-radius: 12px;
-      padding: 4px; margin-bottom: 16px; gap: 4px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      display: flex; background: white; border-radius: 14px;
+      padding: 5px; margin-bottom: 18px; gap: 4px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
     }
     .tab-btn {
-      flex: 1; padding: 10px; border: none; background: none;
-      border-radius: 8px; font-size: 0.95rem; font-weight: 600;
-      cursor: pointer; color: #888; transition: background 0.15s, color 0.15s;
+      flex: 1; padding: 10px 6px; border: none; background: none;
+      border-radius: 10px; font-size: 0.88rem; font-weight: 700;
+      cursor: pointer; color: #aaa; font-family: inherit;
+      transition: background 0.15s, color 0.15s, box-shadow 0.15s;
     }
-    .tab-btn.active { background: #2d6a4f; color: white; }
+    .tab-btn:hover:not(.active) { background: #f5f5f5; color: #555; }
+    .tab-btn.active {
+      background: linear-gradient(135deg, #2d6a4f, #40916c);
+      color: white; box-shadow: 0 2px 8px rgba(45,106,79,0.35);
+    }
 
     /* ---------- Graph screen ---------- */
-    .chart-container { position: relative; height: 300px; }
+    .chart-container { position: relative; height: 360px; }
+    .graph-stats { display: flex; gap: 10px; margin-bottom: 18px; }
+    .graph-stat-card {
+      flex: 1; background: #f8fdf9; border: 1px solid #e0f0e5;
+      border-radius: 12px; padding: 12px; text-align: center;
+    }
+    .gs-label { font-size: 0.7rem; color: #999; font-weight: 600; margin-bottom: 3px; }
+    .gs-value { font-size: 1.15rem; font-weight: 800; color: #1b4332; }
+    .gs-value.neg { color: #e53935; }
 
     /* ---------- Exercise section ---------- */
     #exerciseSection h2 { color: #1565c0; border-bottom-color: #e3f2fd; }
-    .exercise-item { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f0f0; }
+    .exercise-item { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid #f0f6ff; border-radius: 6px; transition: background 0.12s; }
     .exercise-item:last-child { border-bottom: none; }
-    .exercise-item input[type="checkbox"] { width: 26px; height: 26px; accent-color: #1565c0; cursor: pointer; flex-shrink: 0; }
-    .exercise-item .name  { flex: 1; font-size: 0.95rem; }
-    .exercise-item .cal-badge { font-size: 0.82rem; color: #1565c0; white-space: nowrap; }
-    .exercise-item input[type="number"] { width: 62px; padding: 5px 4px; font-size: 0.95rem; border: 1px solid #ccc; border-radius: 6px; text-align: center; }
-    .exercise-item input[type="number"]:focus { outline: none; border-color: #1565c0; }
+    .exercise-item:hover { background: #f5f9ff; }
+    .exercise-item input[type="checkbox"] { width: 20px; height: 20px; accent-color: #1565c0; cursor: pointer; flex-shrink: 0; }
+    .exercise-item .name  { flex: 1; font-size: 0.93rem; }
+    .exercise-item .cal-badge { font-size: 0.8rem; color: #1976d2; white-space: nowrap; background: #e8f0fe; padding: 2px 7px; border-radius: 20px; }
+    .exercise-item input[type="number"] { width: 60px; padding: 5px 4px; font-size: 0.93rem; border: 1.5px solid #e8e8e8; border-radius: 8px; text-align: center; font-family: inherit; }
+    .exercise-item input[type="number"]:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 2px rgba(21,101,192,0.1); }
     .exercise-item.unchecked .name,
-    .exercise-item.unchecked .cal-badge { opacity: 0.45; }
+    .exercise-item.unchecked .cal-badge { opacity: 0.38; }
 
     /* ---------- Auth mode toggle ---------- */
     .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #888; }
@@ -480,16 +530,33 @@
         <button class="btn-logout" onclick="signOut()">התנתקות</button>
       </div>
     </div>
-    <div class="target-row">
-      <label>מאזן קלורי:</label>
-      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;">2300</span>
+    <div class="stat-chips">
+      <div class="stat-chip">
+        <span class="stat-chip-label">🍽 נצרכו</span>
+        <span class="stat-chip-value" id="totalDisplay">0</span>
+        <span class="stat-chip-label">קל׳</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-chip-label">🔥 נשרפו</span>
+        <span class="stat-chip-value" id="burnedDisplay">0</span>
+        <span class="stat-chip-label">קל׳</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-chip-label">🎯 יעד</span>
+        <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" />
+        <span class="stat-chip-label">קל׳</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-chip-label">⚖️ מאזן</span>
+        <span class="stat-chip-value" id="remainingDisplay">2300</span>
+        <span class="stat-chip-label">קל׳</span>
+      </div>
     </div>
   </header>
 
   <div class="summary-bar">
-    <div>קלוריות שנצרכו: <span id="totalDisplay">0</span></div>
-    <div>נשרפו בפעילות: <span id="burnedDisplay">0</span></div>
-    <div>סף קלורי יומי: <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" style="width:70px;padding:3px 6px;font-size:0.95rem;border:1px solid rgba(255,255,255,0.4);border-radius:6px;text-align:center;background:transparent;color:white;" /></div>
+    <div>קלוריות שנצרכו: <span id="totalDisplay2">0</span></div>
+    <div>נשרפו בפעילות: <span id="burnedDisplay2">0</span></div>
   </div>
 
   <main>
@@ -532,13 +599,27 @@
     </div>
 
     <div id="graphsView" style="display:none">
+      <div class="graph-stats" id="graphStatsRow" style="display:none">
+        <div class="graph-stat-card">
+          <div class="gs-label">ימים מוסגרים</div>
+          <div class="gs-value" id="gsTotal">—</div>
+        </div>
+        <div class="graph-stat-card">
+          <div class="gs-label">מאזן ממוצע</div>
+          <div class="gs-value" id="gsAvg">—</div>
+        </div>
+        <div class="graph-stat-card">
+          <div class="gs-label">יום הכי טוב</div>
+          <div class="gs-value" id="gsBest">—</div>
+        </div>
+      </div>
       <section>
-        <h2>מאזן קלורי לאורך זמן</h2>
+        <h2>📈 מאזן קלורי לאורך זמן</h2>
         <div class="chart-container">
           <canvas id="balanceChart"></canvas>
         </div>
-        <div id="graphsEmptyState" style="display:none; text-align:center; color:#888; padding:40px 0; font-size:0.95rem;">
-          אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
+        <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
+          📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
         </div>
       </section>
     </div>
@@ -1811,6 +1892,7 @@
     const remEl = document.getElementById('remainingDisplay');
     remEl.textContent = Math.round(remaining);
     remEl.classList.toggle('negative', remaining < 0);
+    remEl.classList.toggle('positive', remaining >= 0);
   }
 
   // ─── Tab navigation ──────────────────────────────────────────
@@ -1916,9 +1998,11 @@
   async function loadAndRenderGraphs() {
     const canvas   = document.getElementById('balanceChart');
     const empty    = document.getElementById('graphsEmptyState');
+    const statsRow = document.getElementById('graphStatsRow');
 
-    canvas.style.display = 'none';
-    empty.style.display  = 'none';
+    canvas.style.display    = 'none';
+    empty.style.display     = 'none';
+    statsRow.style.display  = 'none';
 
     const { data, error } = await db
       .from('daily_summaries')
@@ -1927,19 +2011,24 @@
       .eq('status', 'completed')
       .order('tracking_date', { ascending: true });
 
-    console.log('Graph query result:', { data, error });
-
     if (error) { console.error('Graph load error:', error); empty.style.display = ''; return; }
     if (!data || data.length === 0) { empty.style.display = ''; return; }
 
-    // Use calorie_balance when available; skip rows where it's null or missing
     const rows = data
       .map(d => ({ date: d.tracking_date, balance: d.calorie_balance ?? null }))
       .filter(d => d.date != null && d.balance != null);
 
-    console.log('Graph rows after filter:', rows);
-
     if (rows.length === 0) { empty.style.display = ''; return; }
+
+    // Populate summary stats
+    const avg  = Math.round(rows.reduce((s, r) => s + r.balance, 0) / rows.length);
+    const best = Math.max(...rows.map(r => r.balance));
+    document.getElementById('gsTotal').textContent = rows.length;
+    const avgEl = document.getElementById('gsAvg');
+    avgEl.textContent = (avg >= 0 ? '+' : '') + avg + ' קל׳';
+    avgEl.className = 'gs-value' + (avg < 0 ? ' neg' : '');
+    document.getElementById('gsBest').textContent  = '+' + best + ' קל׳';
+    statsRow.style.display = 'flex';
 
     canvas.style.display = '';
     if (balanceChartInstance) { balanceChartInstance.destroy(); balanceChartInstance = null; }
@@ -1955,20 +2044,31 @@
           label: 'מאזן קלורי',
           data: values,
           borderColor: '#2d6a4f',
-          borderWidth: 2,
+          borderWidth: 2.5,
           pointBackgroundColor: values.map(v => v >= 0 ? '#2d6a4f' : '#e53935'),
-          pointRadius: 5,
-          pointHoverRadius: 7,
-          tension: 0.3,
-          fill: { target: 'origin', above: 'rgba(45,106,79,0.08)', below: 'rgba(229,57,53,0.08)' },
+          pointBorderColor: 'white',
+          pointBorderWidth: 2,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          tension: 0.4,
+          fill: { target: 'origin', above: 'rgba(45,106,79,0.1)', below: 'rgba(229,57,53,0.08)' },
         }],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: 'rgba(27,67,50,0.92)',
+            titleColor: 'rgba(255,255,255,0.65)',
+            bodyColor: 'white',
+            padding: { x: 14, y: 10 },
+            cornerRadius: 10,
+            displayColors: false,
+            titleFont: { family: 'Heebo', size: 11 },
+            bodyFont:  { family: 'Heebo', size: 13, weight: '700' },
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
@@ -1980,14 +2080,16 @@
         scales: {
           y: {
             grid: {
-              color: ctx => (ctx.tick && ctx.tick.value === 0) ? '#444' : '#f0f0f0',
+              color: ctx => (ctx.tick && ctx.tick.value === 0) ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)',
               lineWidth: ctx => (ctx.tick && ctx.tick.value === 0) ? 2 : 1,
             },
-            ticks: { callback: v => v + ' קל׳' },
+            border: { display: false },
+            ticks: { callback: v => v + ' קל׳', font: { family: 'Heebo', size: 11 }, color: '#aaa' },
           },
           x: {
             grid: { display: false },
-            ticks: { maxRotation: 45, minRotation: 0 },
+            border: { display: false },
+            ticks: { maxRotation: 40, minRotation: 0, font: { family: 'Heebo', size: 11 }, color: '#aaa' },
           },
         },
       },
@@ -2024,6 +2126,20 @@
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
+        currentUser        = null;
+        activeTrackingDate = null;
+        todayEntries       = {};
+        showAuth();
+      }
+    });
+  }
+
+  init();
+
+</script>
+</body>
+</html>
+ if (event === 'SIGNED_OUT') {
         currentUser        = null;
         activeTrackingDate = null;
         todayEntries       = {};
