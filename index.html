@@ -426,6 +426,24 @@
     .btn-motivation:active { background: #1b4332; }
 
     /* ---------- Settings tab ---------- */
+    .settings-personal {
+      border: 1px solid #d4edda; border-radius: 12px; padding: 20px;
+      background: #f6fbf7; margin-bottom: 16px;
+    }
+    .settings-personal h3 { color: #2d6a4f; margin-bottom: 14px; font-size: 1rem; }
+    .settings-field { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; font-size: 0.92rem; color: #333; }
+    .settings-field label { flex: 0 0 90px; font-weight: 600; }
+    .settings-field input, .settings-field select {
+      flex: 1; padding: 7px 10px; border: 1px solid #ccc; border-radius: 8px;
+      font-size: 0.92rem; font-family: inherit; background: white;
+    }
+    .settings-field .unit-select { flex: 0 0 70px; }
+    .settings-field .email-val { flex: 1; color: #555; font-size: 0.88rem; word-break: break-all; }
+    .btn-save-profile {
+      background: #2d6a4f; color: white; border: none; border-radius: 8px;
+      padding: 11px 20px; font-size: 0.95rem; cursor: pointer; font-weight: 700; width: 100%;
+    }
+    .btn-save-profile:active { background: #1b4332; }
     .settings-danger-zone {
       border: 1px solid #ffcdd2; border-radius: 12px; padding: 20px;
       background: #fff8f8;
@@ -611,6 +629,45 @@
     <div id="settingsView" style="display:none">
       <section>
         <h2>הגדרות חשבון</h2>
+
+        <div class="settings-personal">
+          <h3>פרטים אישיים</h3>
+          <div class="settings-field">
+            <label>אימייל</label>
+            <span class="email-val" id="settingsEmail">—</span>
+          </div>
+          <div class="settings-field">
+            <label>גיל</label>
+            <input type="number" id="settingsAge" min="1" max="120" placeholder="גיל" />
+          </div>
+          <div class="settings-field">
+            <label>מגדר</label>
+            <select id="settingsGender">
+              <option value="">לא צוין</option>
+              <option value="male">זכר</option>
+              <option value="female">נקבה</option>
+              <option value="other">אחר</option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label>משקל</label>
+            <input type="number" id="settingsWeight" min="1" step="0.1" placeholder="משקל" />
+            <select class="unit-select" id="settingsWeightUnit">
+              <option value="kg">ק"ג</option>
+              <option value="lb">פאונד</option>
+            </select>
+          </div>
+          <div class="settings-field">
+            <label>גובה</label>
+            <input type="number" id="settingsHeight" min="1" step="0.1" placeholder="גובה" />
+            <select class="unit-select" id="settingsHeightUnit">
+              <option value="cm">ס"מ</option>
+              <option value="inch">אינץ'</option>
+            </select>
+          </div>
+          <button class="btn-save-profile" onclick="saveProfileDetails()">שמור פרטים</button>
+        </div>
+
         <div class="settings-danger-zone">
           <h3>מחיקת חשבון</h3>
           <p>מחיקת החשבון תמחק את כל הנתונים שלך לצמיתות — מזון, פעילות גופנית, גרפים ומוצרים מותאמים אישית. פעולה זו בלתי הפיכה.</p>
@@ -1036,6 +1093,35 @@
     await db.auth.signOut();
   }
 
+  function populateSettingsFields() {
+    document.getElementById('settingsEmail').textContent = currentUser.email || '—';
+    document.getElementById('settingsAge').value         = currentProfile.age    || '';
+    document.getElementById('settingsGender').value      = currentProfile.gender || '';
+    document.getElementById('settingsWeight').value      = currentProfile.weight_kg || '';
+    document.getElementById('settingsWeightUnit').value  = currentProfile.weight_unit || 'kg';
+    document.getElementById('settingsHeight').value      = currentProfile.height_cm || '';
+    document.getElementById('settingsHeightUnit').value  = currentProfile.height_unit || 'cm';
+  }
+
+  async function saveProfileDetails() {
+    const age         = parseInt(document.getElementById('settingsAge').value) || null;
+    const gender      = document.getElementById('settingsGender').value || null;
+    const weightUnit  = document.getElementById('settingsWeightUnit').value;
+    const heightUnit  = document.getElementById('settingsHeightUnit').value;
+    const weightRaw   = parseFloat(document.getElementById('settingsWeight').value);
+    const heightRaw   = parseFloat(document.getElementById('settingsHeight').value);
+    const weight_kg   = weightRaw ? (weightUnit === 'lb' ? Math.round(weightRaw * 0.453592 * 10) / 10 : weightRaw) : null;
+    const height_cm   = heightRaw ? (heightUnit === 'inch' ? Math.round(heightRaw * 2.54 * 10) / 10 : heightRaw) : null;
+
+    const { error } = await db.from('profiles').update({
+      age, gender, weight_kg, height_cm, weight_unit: weightUnit, height_unit: heightUnit,
+    }).eq('id', currentUser.id);
+
+    if (error) { alert('שגיאה בשמירה: ' + error.message); return; }
+    currentProfile = { ...currentProfile, age, gender, weight_kg, height_cm, weight_unit: weightUnit, height_unit: heightUnit };
+    alert('הפרטים נשמרו בהצלחה ✓');
+  }
+
   async function deleteAccount() {
     const confirmed = confirm('האם אתה בטוח שברצונך למחוק את חשבונך?\nכל הנתונים שלך יימחקו לצמיתות ולא ניתן יהיה לשחזרם.');
     if (!confirmed) return;
@@ -1050,15 +1136,18 @@
   }
 
   // ─── Profile (calorie target) ─────────────────────────────────
+  let currentProfile = {};
+
   async function loadProfile() {
     const { data } = await db
       .from('profiles')
-      .select('daily_calorie_target')
+      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender')
       .eq('id', currentUser.id)
       .single();
 
     if (data) {
       profileTarget = data.daily_calorie_target;
+      currentProfile = data;
     } else {
       // New user — save height/weight from signup metadata
       const meta = currentUser.user_metadata || {};
@@ -1887,7 +1976,8 @@
     document.getElementById('tabTracker').classList.toggle('active',  tab === 'tracker');
     document.getElementById('tabGraphs').classList.toggle('active',   tab === 'graphs');
     document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
-    if (tab === 'graphs') loadAndRenderGraphs();
+    if (tab === 'graphs')   loadAndRenderGraphs();
+    if (tab === 'settings') populateSettingsFields();
   }
 
   // ─── Motivation modal ─────────────────────────────────────────
