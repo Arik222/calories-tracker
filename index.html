@@ -152,29 +152,20 @@
     .btn-change-date::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.75; cursor: pointer; }
     .btn-change-date:active { background: rgba(255,255,255,0.35); }
 
-    /* ---------- Stat chips row (replaces summary-bar + target-row) ---------- */
-    .stat-chips {
-      display: flex; gap: 8px; padding: 0 0 14px; overflow-x: auto;
-      scrollbar-width: none;
+    /* ---------- Target row (inside header) ---------- */
+    .target-row { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding-bottom: 14px; }
+    .target-row label { font-size: 0.95rem; }
+    .target-row input { width: 80px; padding: 6px 8px; font-size: 1rem; border: none; border-radius: 6px; text-align: center; }
+
+    /* ---------- Summary bar (below header) ---------- */
+    .summary-bar {
+      background: #1b4332; color: white;
+      display: flex; justify-content: space-around;
+      padding: 10px 20px; font-size: 0.95rem; flex-wrap: wrap; gap: 6px;
     }
-    .stat-chips::-webkit-scrollbar { display: none; }
-    .stat-chip {
-      flex: 1; min-width: 0;
-      background: rgba(255,255,255,0.12);
-      border: 1px solid rgba(255,255,255,0.2);
-      border-radius: 12px; padding: 10px 12px;
-      display: flex; flex-direction: column; align-items: center; gap: 2px;
-    }
-    .stat-chip-label { font-size: 0.68rem; opacity: 0.75; font-weight: 600; white-space: nowrap; }
-    .stat-chip-value { font-size: 1.15rem; font-weight: 800; color: white; line-height: 1.2; }
-    .stat-chip-value.negative { color: #f28b82; }
-    .stat-chip-value.positive { color: #b7e4c7; }
-    .stat-chip input[type="number"] {
-      width: 70px; background: transparent; border: none;
-      color: white; font-size: 1.15rem; font-weight: 800;
-      text-align: center; font-family: inherit; padding: 0;
-    }
-    .stat-chip input[type="number"]:focus { outline: none; }
+    .summary-bar span { font-weight: 600; }
+    .remaining.negative { background: #e53935 !important; color: white !important; }
+    .remaining.positive { background: white; color: #2d6a4f; }
 
     /* ---------- Unsaved changes modal ---------- */
     .modal-overlay {
@@ -530,33 +521,16 @@
         <button class="btn-logout" onclick="signOut()">התנתקות</button>
       </div>
     </div>
-    <div class="stat-chips">
-      <div class="stat-chip">
-        <span class="stat-chip-label">🍽 נצרכו</span>
-        <span class="stat-chip-value" id="totalDisplay">0</span>
-        <span class="stat-chip-label">קל׳</span>
-      </div>
-      <div class="stat-chip">
-        <span class="stat-chip-label">🔥 נשרפו</span>
-        <span class="stat-chip-value" id="burnedDisplay">0</span>
-        <span class="stat-chip-label">קל׳</span>
-      </div>
-      <div class="stat-chip">
-        <span class="stat-chip-label">🎯 יעד</span>
-        <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" />
-        <span class="stat-chip-label">קל׳</span>
-      </div>
-      <div class="stat-chip">
-        <span class="stat-chip-label">⚖️ מאזן</span>
-        <span class="stat-chip-value" id="remainingDisplay">2300</span>
-        <span class="stat-chip-label">קל׳</span>
-      </div>
+    <div class="target-row">
+      <label>מאזן קלורי:</label>
+      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;">2300</span>
     </div>
   </header>
 
   <div class="summary-bar">
-    <div>קלוריות שנצרכו: <span id="totalDisplay2">0</span></div>
-    <div>נשרפו בפעילות: <span id="burnedDisplay2">0</span></div>
+    <div>קלוריות שנצרכו: <span id="totalDisplay">0</span></div>
+    <div>נשרפו בפעילות: <span id="burnedDisplay">0</span></div>
+    <div>סף קלורי יומי: <input type="number" id="targetInput" value="2300" min="0" oninput="onTargetChange()" style="width:70px;padding:3px 6px;font-size:0.95rem;border:1px solid rgba(255,255,255,0.4);border-radius:6px;text-align:center;background:transparent;color:white;" /></div>
   </div>
 
   <main>
@@ -1461,7 +1435,7 @@
       row._badge.style.display     = '';
       row._editBtn.textContent     = '✎';
       row._editBtn.className       = 'btn-edit-item';
-      row._editBtn.onclick         = null;
+      row._editBtn.onclick         = () => startEditRow(row);
       row._editBtn.disabled        = false;
     }
 
@@ -1776,7 +1750,7 @@
 
     qty.addEventListener('input', () => { updateTotal(); });
 
-    editBtn.addEventListener('click', () => startEditRow(row));
+    editBtn.onclick = () => startEditRow(row);
     delBtn.addEventListener('click',  () => deleteItem(row, food.name));
 
     row.appendChild(cb);
