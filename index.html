@@ -125,6 +125,18 @@
       letter-spacing: 0.5px;
     }
     .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+
+    @media (max-width: 600px) {
+      .header-top { flex-wrap: wrap; }
+      header h1 {
+        position: static; transform: none;
+        text-align: center; order: -1;
+        flex-basis: 100%; margin-bottom: 10px;
+        font-size: 1.25rem;
+      }
+      .date-corner { flex: 1; align-items: flex-start; }
+      .header-right { flex: 0 0 auto !important; }
+    }
     #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-logout {
       background: rgba(255,255,255,0.14); color: white;
