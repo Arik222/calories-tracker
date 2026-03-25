@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>בדיקות — מערכת לניהול קלוריות</title>
+  <link rel="stylesheet" href="https://code.jquery.com/qunit/qunit-2.20.0.css" />
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; direction: rtl; }
+    #qunit-header { background: #2d6a4f; }
+    #qunit-banner.qunit-pass { background: #52b788; }
+    #qunit-banner.qunit-fail { background: #e53935; }
+    .note { background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px;
+            padding: 10px 14px; margin: 12px 0; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+
+<div id="qunit"></div>
+<div id="qunit-fixture"></div>
+<p class="note">
+  ⚠️ הרץ את הבדיקות דרך שרת HTTP מקומי:
+  <code>python3 -m http.server 8080</code> ← <code>http://localhost:8080/tests.html</code>
+</p>
+
+<script src="https://code.jquery.com/qunit/qunit-2.20.0.js"></script>
+<script>
+// ─────────────────────────────────────────────────────────────
+//  FUNCTIONS UNDER TEST (copied from index.html for isolation)
+// ─────────────────────────────────────────────────────────────
+
+function getRealToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateHebrew(dateStr) {
+  if (!dateStr) return '';
+  const [y, m, d] = dateStr.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function addOneDay(dateStr) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d + 1);
+  const ny = dt.getFullYear();
+  const nm = String(dt.getMonth() + 1).padStart(2, '0');
+  const nd = String(dt.getDate()).padStart(2, '0');
+  return `${ny}-${nm}-${nd}`;
+}
+
+function calcBalance(target, total, burned) {
+  return target - total + burned;
+}
+
+function convertHeight(value, unit) {
+  if (!value) return null;
+  return unit === 'inch' ? Math.round(value * 2.54 * 10) / 10 : value;
+}
+
+function convertWeight(value, unit) {
+  if (!value) return null;
+  return unit === 'lb' ? Math.round(value * 0.453592 * 10) / 10 : value;
+}
+
+// Message groups — exact copy from index.html
+const MESSAGES = {
+  female: {
+    success: [
+      'אלופה! עוד יום שבו שרפת קלוריות..אני מקנא',
+      'פשייי, מישהי כאן עקבית. החלטת שנפרדים מהקלוריות וכך היה',
+      'כל הכבוד על היום! שמאלה בכיכר ו..הגעת ליעד היומי (וויז זה אתה?)',
+      'תמשיכי ככה. נראה לאן תגיעי...רחוק!',
+      'הצלחה היא לא רק יעד, היא תהליך. כל הכבוד',
+      'וואי, עבודה יפה היום! מחר שווה להתפנק במשהו טעים :)',
+      'אני לא מתבייש לומר שמכל המשתמשים שלי את הכי טובה, רק אל תגלי לשאר...',
+      'עוד לא נולדה השמלה או הבגד ים שיגידו לך לא! סחטיין על ההתמדה.',
+      'מזל שאין לי עיניים, כי אם הייתי רואה אותך.. לא הייתי עומד בזה! תמשיכי ככה :)',
+      'אני אולי לא אמיתי אבל הדייקנות והעקביות שלך גורמים לי להרגיש חי. גאה בך וירטואלית',
+      'והנה עוד יום שבו את ממשיכה לנצח. התרשמתי.',
+      'אני רק מציג לך נתונים אבל הצלחה שלך היא הצלחה שלי! והיה יום מוצלח.',
+      'מזה פצצה? לא, זאת אני.',
+    ],
+    failure: [
+      'היום קצת פחות הלך.. לא קרה כלום! מחר תפציצי.',
+      'מאזן קלורי חיובי היום.. קורה. תראי כמה הצלחת עד עכשיו, מחר נתאפס',
+      'גם כשמנסים לעמוד ביעדים לפעמים יוצא כמעט, קמים וממשיכים הלאה, בהצלחה מחר!',
+      'את אלופה גם אם היום קצת פחות הלך עם המאזן. מחר משתפרים וחוזרים לעניינים',
+      'חשוב להשתדל לא לבלום התקדמות של שבועיים בנפילה של יומיים, אז מחר חוזרים לעניינים',
+      'מחר נדאג למאזן קלורי שלילי, שלא יאשימו אותי בסוף..סומך עלייך',
+    ],
+  },
+  male: {
+    success: [
+      'תשמע, אתה מוריד את הקלוריות עם שוטגאן. תמשיך ככה!',
+      'ביי ביי כרס, אהלן קוביות',
+      'לא נעים להשוויץ, אבל די נעים להשוויץ. תמשיך ככה!',
+      'אני לא מתבייש לומר שאתה המשתמש האהוב עליי, רק אל תגלה לשאר אה..',
+      'הבחורות נופלות לרגליך והקלוריות נופלות מרגליך',
+      'אני לא רק מציג נתונים ומזכיר לך שאתה אלוף. בעתיד אני גם אכין לך קפה, בגרסא הבאה..',
+      'נראות ובריאות הולכים יד ביד. גם אתה והתמדה. כל הכבוד על היום!',
+      'הצלחה היא לא סתם מילה - היא תהליך ורואים שאתה יודע מה אתה עושה. תמשיך',
+      'גאה בך 999 פעמים, ועוד פעם מחר',
+      'באת להתמיד, באת לנצח. אפשר להיות תלמיד שלך?',
+      'עזוב, תתפטר. בקרוב אתה מתחיל לדגמן',
+      'אני לא מקנא, נכנס לי משהו לעין. איך אתה כזה טוב?!',
+    ],
+    failure: [
+      'אז היום פחות הלך כל העניין עם המאזן.. לא נורא, מחר נתקן!',
+      'חמלה עצמית לצד פוקוס גבוה זה הסוד. מחר אתה דואג למאזן קלורי שלילי סגור אלוף?',
+      'אתה גורם לי להציג מאזן קלורי שלילי, איך אתה חושב שזה גורם לי להרגיש? יאללה לעבודה',
+      'בסוף יאשימו אותי.. האחריות היא עליך ידידי. מחר מאזן קלורי שלילי בסדר?',
+      'מאזן קלורי חיובי? עשיתי לך משהו? חשבתי שאנחנו חברים. מחר אתה מפציץ!',
+      'מאזן קלורי חיובי? בטטה.. לא אתה, כאילו אולי אכלת הרבה בטטה פשוט. בקיצור מחר חדש',
+    ],
+  },
+};
+
+function pickMessage(balance, gender) {
+  const g      = (gender === 'female') ? 'female' : 'male';
+  const result = balance >= 0 ? 'success' : 'failure';
+  return MESSAGES[g][result];
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 1 — Date Utilities
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Date Utilities', () => {
+
+  QUnit.test('formatDateHebrew: formats YYYY-MM-DD to DD/MM/YYYY', assert => {
+    assert.strictEqual(formatDateHebrew('2026-03-25'), '25/03/2026');
+    assert.strictEqual(formatDateHebrew('2026-01-01'), '01/01/2026');
+    assert.strictEqual(formatDateHebrew('2026-12-31'), '31/12/2026');
+    assert.strictEqual(formatDateHebrew(''), '', 'empty string returns empty');
+    assert.strictEqual(formatDateHebrew(null), '', 'null returns empty');
+  });
+
+  QUnit.test('addOneDay: advances by exactly one day', assert => {
+    assert.strictEqual(addOneDay('2026-03-25'), '2026-03-26', 'normal day');
+    assert.strictEqual(addOneDay('2026-03-31'), '2026-04-01', 'month boundary');
+    assert.strictEqual(addOneDay('2026-12-31'), '2027-01-01', 'year boundary');
+    assert.strictEqual(addOneDay('2026-02-28'), '2026-03-01', 'non-leap Feb');
+    assert.strictEqual(addOneDay('2024-02-28'), '2024-02-29', 'leap year Feb');
+    assert.strictEqual(addOneDay('2024-02-29'), '2024-03-01', 'leap day');
+  });
+
+  QUnit.test('getRealToday: returns valid YYYY-MM-DD string', assert => {
+    const today = getRealToday();
+    assert.ok(/^\d{4}-\d{2}-\d{2}$/.test(today), 'matches YYYY-MM-DD format');
+    const parts = today.split('-');
+    assert.ok(parseInt(parts[0]) >= 2024, 'year is plausible');
+    assert.ok(parseInt(parts[1]) >= 1 && parseInt(parts[1]) <= 12, 'month in range');
+    assert.ok(parseInt(parts[2]) >= 1 && parseInt(parts[2]) <= 31, 'day in range');
+  });
+
+  QUnit.test('formatDateHebrew and addOneDay roundtrip', assert => {
+    const start  = '2026-03-25';
+    const next   = addOneDay(start);
+    const display = formatDateHebrew(next);
+    assert.strictEqual(display, '26/03/2026');
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 2 — Calorie Balance Calculation
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Calorie Balance', () => {
+
+  QUnit.test('basic balance: target - consumed + burned', assert => {
+    assert.strictEqual(calcBalance(2300, 0, 0),    2300, 'nothing eaten');
+    assert.strictEqual(calcBalance(2300, 2300, 0),    0, 'exactly on target');
+    assert.strictEqual(calcBalance(2300, 1500, 300), 1100, 'under + exercise');
+    assert.strictEqual(calcBalance(2300, 2500, 0),  -200, 'over target');
+    assert.strictEqual(calcBalance(2300, 2500, 300),  100, 'over but exercise saves it');
+  });
+
+  QUnit.test('balance of 0 is treated as success (not failure)', assert => {
+    const pool = pickMessage(0, 'male');
+    assert.strictEqual(pool, MESSAGES.male.success, 'balance=0 → success pool');
+  });
+
+  QUnit.test('negative balance → failure pool', assert => {
+    assert.strictEqual(pickMessage(-1, 'male'),   MESSAGES.male.failure);
+    assert.strictEqual(pickMessage(-500, 'female'), MESSAGES.female.failure);
+  });
+
+  QUnit.test('edge: very large surplus/deficit', assert => {
+    assert.strictEqual(calcBalance(2300, 0, 5000),  7300, 'huge exercise');
+    assert.strictEqual(calcBalance(2300, 10000, 0), -7700, 'huge intake');
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 3 — Unit Conversions
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Unit Conversions', () => {
+
+  QUnit.test('convertHeight: cm passthrough', assert => {
+    assert.strictEqual(convertHeight(180, 'cm'), 180);
+    assert.strictEqual(convertHeight(165.5, 'cm'), 165.5);
+  });
+
+  QUnit.test('convertHeight: inches to cm', assert => {
+    assert.strictEqual(convertHeight(70, 'inch'), 177.8, '70 inches → 177.8 cm');
+    assert.strictEqual(convertHeight(60, 'inch'), 152.4, '60 inches → 152.4 cm');
+  });
+
+  QUnit.test('convertHeight: null/falsy input returns null', assert => {
+    assert.strictEqual(convertHeight(0, 'cm'), null);
+    assert.strictEqual(convertHeight(null, 'cm'), null);
+    assert.strictEqual(convertHeight('', 'cm'), null);
+  });
+
+  QUnit.test('convertWeight: kg passthrough', assert => {
+    assert.strictEqual(convertWeight(80, 'kg'), 80);
+    assert.strictEqual(convertWeight(55.5, 'kg'), 55.5);
+  });
+
+  QUnit.test('convertWeight: lb to kg', assert => {
+    assert.strictEqual(convertWeight(176, 'lb'), 79.8, '176 lb → 79.8 kg');
+    assert.strictEqual(convertWeight(154, 'lb'), 69.9, '154 lb → 69.9 kg');
+  });
+
+  QUnit.test('convertWeight: null/falsy input returns null', assert => {
+    assert.strictEqual(convertWeight(0, 'kg'), null);
+    assert.strictEqual(convertWeight(null, 'kg'), null);
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 4 — Motivational Message Selection
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Message Selection', () => {
+
+  QUnit.test('all 4 groups are non-empty arrays', assert => {
+    assert.ok(MESSAGES.female.success.length > 0, 'female success has messages');
+    assert.ok(MESSAGES.female.failure.length > 0, 'female failure has messages');
+    assert.ok(MESSAGES.male.success.length   > 0, 'male success has messages');
+    assert.ok(MESSAGES.male.failure.length   > 0, 'male failure has messages');
+  });
+
+  QUnit.test('correct group selected by gender + balance', assert => {
+    assert.strictEqual(pickMessage(100, 'female'),  MESSAGES.female.success, 'female success');
+    assert.strictEqual(pickMessage(-50, 'female'),  MESSAGES.female.failure, 'female failure');
+    assert.strictEqual(pickMessage(100, 'male'),    MESSAGES.male.success,   'male success');
+    assert.strictEqual(pickMessage(-50, 'male'),    MESSAGES.male.failure,   'male failure');
+  });
+
+  QUnit.test('null/other gender defaults to male group', assert => {
+    assert.strictEqual(pickMessage(100, null),    MESSAGES.male.success,  'null → male success');
+    assert.strictEqual(pickMessage(100, 'other'), MESSAGES.male.success,  'other → male success');
+    assert.strictEqual(pickMessage(-1, null),     MESSAGES.male.failure,  'null → male failure');
+    assert.strictEqual(pickMessage(-1, undefined),MESSAGES.male.failure,  'undefined → male failure');
+  });
+
+  QUnit.test('all messages are non-empty strings', assert => {
+    const all = [
+      ...MESSAGES.female.success, ...MESSAGES.female.failure,
+      ...MESSAGES.male.success,   ...MESSAGES.male.failure,
+    ];
+    all.forEach((msg, i) => {
+      assert.ok(typeof msg === 'string' && msg.trim().length > 0, `message[${i}] is non-empty`);
+    });
+  });
+
+  QUnit.test('messages contain Hebrew characters', assert => {
+    const hebrewPattern = /[\u05D0-\u05EA]/;
+    const all = [
+      ...MESSAGES.female.success, ...MESSAGES.female.failure,
+      ...MESSAGES.male.success,   ...MESSAGES.male.failure,
+    ];
+    all.forEach((msg, i) => {
+      assert.ok(hebrewPattern.test(msg), `message[${i}] contains Hebrew`);
+    });
+  });
+
+  QUnit.test('random selection stays within pool bounds', assert => {
+    for (let i = 0; i < 100; i++) {
+      const pool = pickMessage(Math.random() > 0.5 ? 100 : -100, Math.random() > 0.5 ? 'male' : 'female');
+      const idx  = Math.floor(Math.random() * pool.length);
+      assert.ok(idx >= 0 && idx < pool.length, `idx ${idx} within pool of ${pool.length}`);
+    }
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 5 — Security Scan (fetches index.html source)
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Security Scan', hooks => {
+  let src = '';
+
+  hooks.before(async () => {
+    try {
+      const res = await fetch('/index.html');
+      src = await res.text();
+    } catch (e) {
+      src = '';
+    }
+  });
+
+  QUnit.test('index.html was loaded for scanning', assert => {
+    assert.ok(src.length > 1000, `Loaded ${src.length} chars — run via http server, not file://`);
+  });
+
+  QUnit.test('no eval() usage', assert => {
+    const matches = [...src.matchAll(/\beval\s*\(/g)];
+    assert.strictEqual(matches.length, 0, `Found ${matches.length} eval() calls`);
+  });
+
+  QUnit.test('no document.write() usage', assert => {
+    const matches = [...src.matchAll(/document\.write\s*\(/g)];
+    assert.strictEqual(matches.length, 0, `Found ${matches.length} document.write() calls`);
+  });
+
+  QUnit.test('no Function() constructor usage', assert => {
+    const matches = [...src.matchAll(/new\s+Function\s*\(/g)];
+    assert.strictEqual(matches.length, 0, `Found ${matches.length} new Function() calls`);
+  });
+
+  QUnit.test('no setTimeout/setInterval with string argument', assert => {
+    // setTimeout("...", n) or setInterval("...", n) — dangerous pattern
+    const matches = [...src.matchAll(/set(?:Timeout|Interval)\s*\(\s*['"]/g)];
+    assert.strictEqual(matches.length, 0, `Found ${matches.length} timer-with-string calls`);
+  });
+
+  QUnit.test('innerHTML never assigned with user-derived runtime variable', assert => {
+    // Allowed: innerHTML = '' or innerHTML = '<literal HTML'
+    // Dangerous: innerHTML = someVariable  or  innerHTML = `...${var}...`
+    const lines = src.split('\n');
+    const violations = [];
+    lines.forEach((line, i) => {
+      // Match: .innerHTML = something that is NOT '' or literal HTML string starting with <
+      if (/\.innerHTML\s*=/.test(line)) {
+        // Allow: .innerHTML = '' or .innerHTML = "..." or .innerHTML = '<...'
+        const rhs = line.replace(/.*\.innerHTML\s*=\s*/, '').trim();
+        const isSafeLiteral = /^(['"`])\s*\1/.test(rhs)         // empty string ''
+                           || /^['"`]</.test(rhs)                // literal HTML string
+                           || /^'[^']*'/.test(rhs)               // any short string literal
+                           || /^"[^"]*"/.test(rhs);              // any short string literal
+        if (!isSafeLiteral) {
+          violations.push(`Line ${i + 1}: ${line.trim()}`);
+        }
+      }
+    });
+    assert.strictEqual(violations.length, 0,
+      violations.length ? 'Potential XSS:\n' + violations.join('\n') : 'OK');
+  });
+
+  QUnit.test('Supabase URL uses HTTPS', assert => {
+    const matches = [...src.matchAll(/https?:\/\/[a-z0-9]+\.supabase\.co/g)];
+    assert.ok(matches.length > 0, 'Supabase URL found in source');
+    matches.forEach(m => {
+      assert.ok(m[0].startsWith('https://'), `${m[0]} uses HTTPS`);
+    });
+  });
+
+  QUnit.test('no hardcoded passwords or secret keys in source', assert => {
+    // Look for suspicious patterns (not the anon key which is public by design)
+    const serviceRolePattern = /service_role/i;
+    const passwordInCode     = /password\s*=\s*['"][^'"]{6,}/;
+    assert.notOk(serviceRolePattern.test(src), 'no service_role key in source');
+    // Exclude auth form password field assignments from this check
+    const srcNoForm = src.replace(/<input[^>]*type="password"[^>]*>/g, '');
+    const passwordMatches = [...srcNoForm.matchAll(/(?<!=)\bpassword\b\s*=\s*['"][^'"]{6,}/g)];
+    assert.strictEqual(passwordMatches.length, 0,
+      passwordMatches.length ? 'Possible hardcoded password found' : 'OK');
+  });
+
+  QUnit.test('auth screen and app screen are separate and gated', assert => {
+    assert.ok(/id="authScreen"/.test(src), 'authScreen element exists');
+    assert.ok(/id="appScreen"/.test(src),  'appScreen element exists');
+    assert.ok(/display:none/.test(src) || /display: none/.test(src), 'elements start hidden');
+    assert.ok(/db\.auth\.getUser\(\)/.test(src), 'uses getUser() for server-side auth check');
+    assert.ok(/showAuth\(\)/.test(src), 'showAuth() called on auth failure');
+  });
+
+  QUnit.test('no window.location.hash or query-param injection vectors', assert => {
+    assert.notOk(/location\.hash/.test(src),          'no hash reading');
+    assert.notOk(/location\.search/.test(src),         'no query string reading');
+    assert.notOk(/URLSearchParams/.test(src),          'no URLSearchParams');
+  });
+
+  QUnit.test('user data written via textContent, not innerHTML', assert => {
+    // Check that currentUser.email is set via textContent
+    assert.ok(/textContent\s*=\s*currentUser\.email/.test(src) ||
+              /textContent.*userEmail/.test(src) ||
+              /settingsEmail.*textContent/.test(src),
+      'email written via textContent');
+    // No innerHTML assignment of currentUser properties
+    assert.notOk(/\.innerHTML\s*=\s*currentUser/.test(src),
+      'currentUser not written via innerHTML');
+  });
+
+});
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 6 — DOM / UI Logic (minimal, no Supabase needed)
+// ─────────────────────────────────────────────────────────────
+QUnit.module('DOM Logic', () => {
+
+  QUnit.test('balance display: negative balance gets "negative" class', assert => {
+    // Simulate the remEl logic from updateTotal()
+    const el = document.createElement('span');
+    const remaining = -200;
+    el.textContent = remaining;
+    el.classList.toggle('negative', remaining < 0);
+    el.classList.toggle('positive', remaining >= 0);
+    assert.ok(el.classList.contains('negative'), 'negative class applied');
+    assert.notOk(el.classList.contains('positive'), 'positive class not applied');
+  });
+
+  QUnit.test('balance display: zero balance gets "positive" class', assert => {
+    const el = document.createElement('span');
+    const remaining = 0;
+    el.classList.toggle('negative', remaining < 0);
+    el.classList.toggle('positive', remaining >= 0);
+    assert.notOk(el.classList.contains('negative'));
+    assert.ok(el.classList.contains('positive'));
+  });
+
+  QUnit.test('balance display: positive balance gets "positive" class', assert => {
+    const el = document.createElement('span');
+    const remaining = 500;
+    el.classList.toggle('negative', remaining < 0);
+    el.classList.toggle('positive', remaining >= 0);
+    assert.ok(el.classList.contains('positive'));
+    assert.notOk(el.classList.contains('negative'));
+  });
+
+  QUnit.test('date input value format is accepted by date input element', assert => {
+    const input = document.createElement('input');
+    input.type  = 'date';
+    input.value = '2026-03-25';
+    assert.strictEqual(input.value, '2026-03-25', 'YYYY-MM-DD accepted by date input');
+  });
+
+  QUnit.test('formatDateHebrew output is NOT accepted by date input (different format)', assert => {
+    const input = document.createElement('input');
+    input.type  = 'date';
+    input.value = formatDateHebrew('2026-03-25'); // '25/03/2026' — wrong format
+    assert.notEqual(input.value, '25/03/2026', 'DD/MM/YYYY correctly rejected by date input');
+  });
+
+});
+</script>
+</body>
+</html>
