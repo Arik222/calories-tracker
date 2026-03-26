@@ -1604,6 +1604,9 @@
     // 3. Sync user_custom_foods (if this is a custom food)
     const cfIdx = customFoods.findIndex(f => f.food_name === oldName);
     if (cfIdx >= 0) {
+      const dbUpdate = {};
+      if (nameChanged) dbUpdate.food_name         = newName;
+      if (calChanged)  dbUpdate.calories_per_unit = newCal;
       await db.from('user_custom_foods')
         .update(dbUpdate)
         .eq('user_id',   currentUser.id)
