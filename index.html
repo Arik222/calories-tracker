@@ -1559,9 +1559,14 @@
       const newCal  = parseFloat(calInput.value);
       if (isNaN(newCal) || newCal < 0) return;
       row._editBtn.disabled = true;
-      await applyItemEdit(row, row._name, newName, newCal);
-      row._editBtn.disabled = false;
-      cleanup();
+      try {
+        await applyItemEdit(row, row._name, newName, newCal);
+      } catch (e) {
+        console.error('שגיאה בשמירת עריכה:', e);
+      } finally {
+        row._editBtn.disabled = false;
+        cleanup();
+      }
     }
 
     row._editBtn.onclick  = save;
