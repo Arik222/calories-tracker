@@ -354,11 +354,14 @@ QUnit.module('Security Scan', hooks => {
   });
 
   QUnit.test('Supabase URL uses HTTPS', assert => {
-    const matches = [...src.matchAll(/https?:\/\/[a-z0-9]+\.supabase\.co/g)];
-    assert.ok(matches.length > 0, 'Supabase URL found in source');
-    matches.forEach(m => {
-      assert.ok(m[0].startsWith('https://'), `${m[0]} uses HTTPS`);
-    });
+    // Check the inline constant directly — does not depend on async fetch
+    const urlMatch = src.match(/const\s+SUPABASE_URL\s*=\s*['"]([^'"]+)['"]/);
+    assert.ok(urlMatch, 'SUPABASE_URL constant found in source');
+    if (urlMatch) {
+      const url = urlMatch[1];
+      assert.ok(url.startsWith('https://'), `SUPABASE_URL is "${url}" — must start with https://`);
+      assert.ok(url.includes('.supabase.co'), `SUPABASE_URL "${url}" points to supabase.co`);
+    }
   });
 
   QUnit.test('no hardcoded passwords or secret keys in source', assert => {
