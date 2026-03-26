@@ -1845,9 +1845,10 @@
     label.className   = 'name';
     label.textContent = food.name;
 
+    const badgeCal = (savedEntry && savedEntry.calories_per_unit != null) ? savedEntry.calories_per_unit : food.cal;
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
-    badge.textContent = food.cal + ' קל׳' + (food.unit ? ' / ' + food.unit : '');
+    badge.textContent = badgeCal + ' קל׳' + (food.unit ? ' / ' + food.unit : '');
 
     const qty = document.createElement('input');
     qty.type  = 'number';
