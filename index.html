@@ -787,7 +787,7 @@
       <div class="modal-card">
         <p>יש שינויים שלא נשמרו.<br>לסיים את היום?</p>
         <button class="modal-btn-save"   onclick="finalizeModalRespond('save')">שמור וסיים</button>
-        <button class="modal-btn-skip"   onclick="finalizeModalRespond('skip')">סיים בלי לשמור</button>
+        <button class="modal-btn-skip"   onclick="finalizeModalRespond('skip')">סיים עם מה שנשמר</button>
         <button class="modal-btn-cancel" onclick="finalizeModalRespond('cancel')">ביטול</button>
       </div>
     </div>
@@ -1271,7 +1271,7 @@
         user_id:           currentUser.id,
         date:              activeTrackingDate,   // ← active day
         food_name:         foodName,
-        calories_per_unit: Math.round(calPerUnit),
+        calories_per_unit: calPerUnit,
         quantity:          qty,
       },
       { onConflict: 'user_id,date,food_name' }
@@ -1310,6 +1310,47 @@
       .eq('user_id',       currentUser.id)
       .eq('date',          activeTrackingDate)
       .eq('exercise_name', name);
+  }
+
+  // ─── Summary recalculation ────────────────────────────────────
+  // Single authoritative function for writing daily_summaries.
+  // Always derives values from daily_food_entries + daily_exercise_entries.
+  // Returns { total, burned, balance } or null if no entries exist.
+  async function recalcSummaryForDate(date, markCompleted) {
+    const uid = currentUser.id;
+
+    const [{ data: foods }, { data: exs }, { data: existing }] = await Promise.all([
+      db.from('daily_food_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date),
+      db.from('daily_exercise_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date),
+      db.from('daily_summaries').select('status').eq('user_id', uid).eq('tracking_date', date).maybeSingle(),
+    ]);
+
+    const hasFoods = foods && foods.length > 0;
+    const hasEx    = exs   && exs.length   > 0;
+
+    if (!hasFoods && !hasEx) {
+      if (existing) {
+        await db.from('daily_summaries').delete().eq('user_id', uid).eq('tracking_date', date);
+      }
+      return null;
+    }
+
+    const total  = Math.round((foods || []).reduce((s, e) => s + (e.calories_per_unit || 0) * e.quantity, 0));
+    const burned = Math.round((exs   || []).reduce((s, e) => s + (e.calories_per_unit || 0) * e.quantity, 0));
+    const target = parseInt(document.getElementById('targetInput').value) || profileTarget;
+    const status = markCompleted ? 'completed' : (existing ? existing.status : 'open');
+
+    await db.from('daily_summaries').upsert({
+      user_id:         uid,
+      tracking_date:   date,
+      total_calories:  total,
+      calorie_balance: target - total + burned,
+      calorie_target:  target,
+      exercise_burned: burned,
+      status,
+    }, { onConflict: 'user_id,tracking_date' });
+
+    return { total, burned, balance: target - total + burned };
   }
 
   // ─── Save / Finalize / Reset ──────────────────────────────────
@@ -1368,8 +1409,16 @@
       exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
     }
 
-    // 6. Update snapshot — UI is now in sync with DB
+    // 6. Recalculate daily_summaries from the entries just written
+    await recalcSummaryForDate(activeTrackingDate, false);
+
+    // 7. Update snapshot — UI is now in sync with DB
     updateSnapshot();
+
+    // 8. Refresh graphs if that tab is currently visible
+    if (document.getElementById('graphsView').style.display !== 'none') {
+      loadAndRenderGraphs();
+    }
   }
 
   // "שמור" button
@@ -1388,40 +1437,19 @@
   // "סיימתי להיום, עבור ליום הבא"
   async function finalizeDay() {
     if (hasUnsavedChanges()) {
-      // Unsaved changes: show dedicated modal
+      // Unsaved changes: ask user whether to save them first
       const choice = await showFinalizeModal();
       if (choice === 'cancel') return;
       if (choice === 'save') await saveAllRows();
-      // 'skip' → finalize using current UI total, without touching food entries
+      // 'skip' — keep current DB entries as-is; summary will still be derived from them
     }
 
     const btn = document.getElementById('btnFinalize');
     btn.disabled = true;
 
-    const total   = getCurrentTotal();
-    const burned  = getCurrentBurned();
-    const target  = parseInt(document.getElementById('targetInput').value) || 0;
-    const balance = target - total + burned;
-
-    // 3. Save final summary for this day
-    const { error: summaryError } = await db.from('daily_summaries').upsert(
-      {
-        user_id:          currentUser.id,
-        tracking_date:    activeTrackingDate,
-        total_calories:   total,
-        calorie_balance:  balance,
-        exercise_burned:  burned,
-        status:           'completed',
-      },
-      { onConflict: 'user_id,tracking_date' }
-    );
-
-    if (summaryError) {
-      console.error('finalizeDay summary error:', summaryError);
-      alert('שגיאה בשמירת סיכום היום: ' + summaryError.message);
-      btn.disabled = false;
-      return;
-    }
+    // Derive summary entirely from DB entries — never from UI-only state
+    const result = await recalcSummaryForDate(activeTrackingDate, true);
+    const balance = result ? result.balance : 0;
 
     // Show motivational message, wait for user to dismiss
     await showMotivationModal(balance, currentProfile.gender);
@@ -1713,23 +1741,34 @@
       return t;
     }
 
-    const rows = summaries.map(s => {
-      const date   = s.tracking_date;
-      const foods  = foodByDate[date] || [];
-      const exs    = exByDate[date]   || [];
-      const total  = Math.round(foods.reduce((acc, e) => acc + (e.calories_per_unit || 0) * e.quantity, 0));
-      const burned = Math.round(exs.reduce((acc, e)   => acc + (e.calories_per_unit || 0) * e.quantity, 0));
-      const target = getTarget(date);
-      return { user_id: uid, tracking_date: date, total_calories: total, calorie_balance: target - total + burned, calorie_target: target, exercise_burned: burned, status: s.status };
-    });
+    const toDelete = [];
+    const toUpsert = [];
 
-    for (let i = 0; i < rows.length; i += 50) {
-      const { error } = await db.from('daily_summaries').upsert(rows.slice(i, i + 50), { onConflict: 'user_id,tracking_date' });
+    for (const s of summaries) {
+      const date  = s.tracking_date;
+      const foods = foodByDate[date] || [];
+      const exs   = exByDate[date]   || [];
+      if (foods.length === 0 && exs.length === 0) {
+        toDelete.push(date);
+      } else {
+        const total  = Math.round(foods.reduce((acc, e) => acc + (e.calories_per_unit || 0) * e.quantity, 0));
+        const burned = Math.round(exs.reduce((acc, e)   => acc + (e.calories_per_unit || 0) * e.quantity, 0));
+        const target = getTarget(date);
+        toUpsert.push({ user_id: uid, tracking_date: date, total_calories: total, calorie_balance: target - total + burned, calorie_target: target, exercise_burned: burned, status: s.status });
+      }
+    }
+
+    for (let i = 0; i < toDelete.length; i += 50) {
+      const { error } = await db.from('daily_summaries').delete().eq('user_id', uid).in('tracking_date', toDelete.slice(i, i + 50));
+      if (error) { console.error('Delete error', error); return; }
+    }
+    for (let i = 0; i < toUpsert.length; i += 50) {
+      const { error } = await db.from('daily_summaries').upsert(toUpsert.slice(i, i + 50), { onConflict: 'user_id,tracking_date' });
       if (error) { console.error('Upsert error', error); return; }
     }
 
-    console.table(rows.map(r => ({ date: r.tracking_date, total: r.total_calories, burned: r.exercise_burned, target: r.calorie_target, balance: r.calorie_balance })));
-    console.log(`✅ Done — recalculated ${rows.length} summaries.`);
+    console.table(toUpsert.map(r => ({ date: r.tracking_date, total: r.total_calories, burned: r.exercise_burned, target: r.calorie_target, balance: r.calorie_balance })));
+    console.log(`✅ Done — updated ${toUpsert.length} summaries, deleted ${toDelete.length} orphaned.`);
   };
 
   // ─── Accordion helper ─────────────────────────────────────────

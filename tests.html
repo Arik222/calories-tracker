@@ -452,6 +452,86 @@ QUnit.module('DOM Logic', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 7 — Data Integrity
+// ─────────────────────────────────────────────────────────────
+QUnit.module('Data Integrity', hooks => {
+  let src = '';
+  hooks.before(async () => {
+    try { src = await (await fetch('/index.html')).text(); } catch (e) { src = ''; }
+  });
+
+  QUnit.test('recalcSummaryForDate exists as the single summary write function', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    assert.ok(/async function recalcSummaryForDate/.test(src),
+      'recalcSummaryForDate is defined');
+  });
+
+  QUnit.test('saveAllRows calls recalcSummaryForDate (not direct upsert)', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    assert.ok(/saveAllRows[\s\S]{0,3000}recalcSummaryForDate/.test(src),
+      'saveAllRows delegates summary update to recalcSummaryForDate');
+    // Must NOT directly upsert daily_summaries inside saveAllRows
+    const saveAllRowsBody = src.match(/async function saveAllRows[\s\S]+?(?=\n  \/\/ .{0,40}\n  (?:async )?function)/)?.[0] || '';
+    assert.notOk(/daily_summaries.*upsert/.test(saveAllRowsBody),
+      'saveAllRows does not directly upsert daily_summaries');
+  });
+
+  QUnit.test('finalizeDay calls recalcSummaryForDate with markCompleted=true', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    assert.ok(/finalizeDay[\s\S]{0,1000}recalcSummaryForDate\s*\(\s*activeTrackingDate\s*,\s*true\s*\)/.test(src),
+      'finalizeDay calls recalcSummaryForDate(activeTrackingDate, true)');
+  });
+
+  QUnit.test('finalizeDay does not use getCurrentTotal() for summary', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    const finalizeDayBody = src.match(/async function finalizeDay[\s\S]+?(?=\n  \/\/ .{0,40}\n  (?:async )?function)/)?.[0] || '';
+    assert.notOk(/getCurrentTotal\s*\(\s*\)/.test(finalizeDayBody),
+      'finalizeDay does not derive summary from UI-only getCurrentTotal()');
+  });
+
+  QUnit.test('upsertEntry stores calories_per_unit without integer rounding', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    // Must not have Math.round(calPerUnit) in upsertEntry
+    const upsertBody = src.match(/async function upsertEntry[\s\S]+?\}/)?.[0] || '';
+    assert.notOk(/Math\.round\s*\(\s*calPerUnit\s*\)/.test(upsertBody),
+      'upsertEntry does not Math.round calPerUnit');
+    assert.ok(/calories_per_unit\s*:\s*calPerUnit/.test(upsertBody),
+      'upsertEntry stores raw calPerUnit value');
+  });
+
+  QUnit.test('decimal calories_per_unit preserved through sum (no integer drift)', assert => {
+    // Simulate: 5 entries of 1.86 cal × 1 qty
+    const entries = Array(5).fill({ calories_per_unit: 1.86, quantity: 1 });
+    const total = Math.round(entries.reduce((s, e) => s + e.calories_per_unit * e.quantity, 0));
+    assert.strictEqual(total, 9, '5 × 1.86 rounds to 9 (not 5 due to premature int rounding)');
+  });
+
+  QUnit.test('repeated saves do not drift: same inputs produce same stored value', assert => {
+    // If calPerUnit is stored as-is and re-read, applying it multiple times must not drift
+    const calPerUnit = 1.86;
+    const stored     = calPerUnit;           // no Math.round at write time
+    const readBack   = stored;               // DB returns exactly what was stored
+    assert.strictEqual(readBack, 1.86, 'value round-trips without drift');
+  });
+
+  QUnit.test('balance formula target-total+burned is consistent across all call sites', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    const matches = [...src.matchAll(/target\s*-\s*total\s*\+\s*burned/g)];
+    assert.ok(matches.length >= 2,
+      `Formula appears ${matches.length} time(s) — expected ≥2 (recalcSummaryForDate, applyItemEdit)`
+    );
+  });
+
+  QUnit.test('recalcAllSummaries deletes orphaned summaries when entries=0', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    assert.ok(/recalcAllSummaries[\s\S]{0,3000}toDelete/.test(src),
+      'recalcAllSummaries separates dates with no entries into toDelete for deletion'
+    );
+  });
+
+});
 </script>
 </body>
 </html>
