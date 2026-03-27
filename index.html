@@ -1679,6 +1679,59 @@
     updateSnapshot();
   }
 
+  // ─── One-time summary repair ───────────────────────────────────
+  // Run once from browser console: recalcAllSummaries()
+  window.recalcAllSummaries = async function () {
+    const uid = currentUser.id;
+    console.log('Fetching data…');
+
+    const [
+      { data: foodEntries, error: fe },
+      { data: exEntries,   error: ee },
+      { data: targetHist,  error: te },
+      { data: summaries,   error: se },
+    ] = await Promise.all([
+      db.from('daily_food_entries').select('date, calories_per_unit, quantity').eq('user_id', uid),
+      db.from('daily_exercise_entries').select('date, calories_per_unit, quantity').eq('user_id', uid),
+      db.from('calorie_target_history').select('effective_from_date, daily_calorie_target').eq('user_id', uid).order('effective_from_date', { ascending: true }),
+      db.from('daily_summaries').select('tracking_date, status').eq('user_id', uid),
+    ]);
+
+    if (fe || ee || te || se) { console.error('Fetch error', fe || ee || te || se); return; }
+
+    const foodByDate = {};
+    for (const e of foodEntries) (foodByDate[e.date] = foodByDate[e.date] || []).push(e);
+
+    const exByDate = {};
+    for (const e of exEntries) (exByDate[e.date] = exByDate[e.date] || []).push(e);
+
+    function getTarget(date) {
+      let t = profileTarget;
+      for (const row of targetHist) {
+        if (row.effective_from_date <= date) t = row.daily_calorie_target;
+      }
+      return t;
+    }
+
+    const rows = summaries.map(s => {
+      const date   = s.tracking_date;
+      const foods  = foodByDate[date] || [];
+      const exs    = exByDate[date]   || [];
+      const total  = Math.round(foods.reduce((acc, e) => acc + (e.calories_per_unit || 0) * e.quantity, 0));
+      const burned = Math.round(exs.reduce((acc, e)   => acc + (e.calories_per_unit || 0) * e.quantity, 0));
+      const target = getTarget(date);
+      return { user_id: uid, tracking_date: date, total_calories: total, calorie_balance: target - total + burned, calorie_target: target, exercise_burned: burned, status: s.status };
+    });
+
+    for (let i = 0; i < rows.length; i += 50) {
+      const { error } = await db.from('daily_summaries').upsert(rows.slice(i, i + 50), { onConflict: 'user_id,tracking_date' });
+      if (error) { console.error('Upsert error', error); return; }
+    }
+
+    console.table(rows.map(r => ({ date: r.tracking_date, total: r.total_calories, burned: r.exercise_burned, target: r.calorie_target, balance: r.calorie_balance })));
+    console.log(`✅ Done — recalculated ${rows.length} summaries.`);
+  };
+
   // ─── Accordion helper ─────────────────────────────────────────
   function makeCatDetails(catName, defaultOpen) {
     const details = document.createElement('details');
