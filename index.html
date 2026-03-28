@@ -1625,13 +1625,12 @@
         .eq('food_name', oldName);
     }
 
-    // 2b. Calorie changes apply ONLY from activeTrackingDate forward — never distort past data
+    // 2b. Calorie changes apply to ALL dates — single source of truth, no dual values
     if (calChanged) {
       await db.from('daily_food_entries')
         .update({ calories_per_unit: newCal })
         .eq('user_id',   currentUser.id)
-        .eq('food_name', nameChanged ? newName : oldName)
-        .gte('date', activeTrackingDate);
+        .eq('food_name', nameChanged ? newName : oldName);
     }
 
     // 3. Sync user_custom_foods (if this is a custom food)
@@ -1664,11 +1663,8 @@
       }
     }
 
-    // 6. Recalculate daily_summaries — only for dates >= activeTrackingDate
-    //    (calorie data before activeTrackingDate was intentionally left untouched)
-    const datesToRecalc = calChanged
-      ? uniqueDates.filter(d => d >= activeTrackingDate)
-      : []; // name-only change doesn't affect totals, no recalc needed
+    // 6. Recalculate daily_summaries for ALL affected dates
+    const datesToRecalc = calChanged ? uniqueDates : []; // name-only: no totals change
     for (const date of datesToRecalc) {
       const [{ data: entries }, { data: targetRow }, { data: exEntries }] = await Promise.all([
         db.from('daily_food_entries')
@@ -1937,7 +1933,7 @@
     label.className   = 'name';
     label.textContent = food.name;
 
-    const badgeCal = (savedEntry && savedEntry.calories_per_unit != null) ? savedEntry.calories_per_unit : food.cal;
+    const badgeCal = food.cal;
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
     badge.textContent = badgeCal + ' קל׳' + (food.unit ? ' / ' + food.unit : '');

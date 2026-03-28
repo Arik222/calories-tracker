@@ -531,6 +531,30 @@ QUnit.module('Data Integrity', hooks => {
     );
   });
 
+  QUnit.test('applyItemEdit propagates calorie changes to ALL dates (no gte filter)', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    // Extract applyItemEdit body
+    const body = src.match(/async function applyItemEdit[\s\S]+?(?=\n  \/\/ .{0,60}\n  (?:window\.|async )?function)/)?.[0] || '';
+    assert.ok(body.length > 0, 'applyItemEdit body extracted');
+    assert.notOk(/\.gte\s*\(\s*['"]date['"]/.test(body),
+      'applyItemEdit does NOT restrict calorie update to activeTrackingDate forward');
+  });
+
+  QUnit.test('applyItemEdit recalculates summaries for ALL dates (not filtered by activeTrackingDate)', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    const body = src.match(/async function applyItemEdit[\s\S]+?(?=\n  \/\/ .{0,60}\n  (?:window\.|async )?function)/)?.[0] || '';
+    assert.notOk(/datesToRecalc[\s\S]{0,200}filter\s*\(/.test(body),
+      'datesToRecalc does not filter uniqueDates by activeTrackingDate');
+  });
+
+  QUnit.test('createFoodRow badge uses food.cal only — no dual historical/current value', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    const body = src.match(/function createFoodRow[\s\S]+?(?=\n  function )/)?.[0] || '';
+    assert.ok(body.length > 0, 'createFoodRow body extracted');
+    assert.notOk(/savedEntry.*calories_per_unit/.test(body),
+      'createFoodRow badge does not use savedEntry.calories_per_unit (single source of truth)');
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────────
