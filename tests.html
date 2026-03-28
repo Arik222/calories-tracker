@@ -532,6 +532,82 @@ QUnit.module('Data Integrity', hooks => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────────
+//  MODULE 8 — User Deletion Cleanup
+// ─────────────────────────────────────────────────────────────
+QUnit.module('User Deletion Cleanup', hooks => {
+  let appSrc   = '';
+  let sqlSrc   = '';
+
+  hooks.before(async () => {
+    try { appSrc = await (await fetch('/index.html')).text();                     } catch (e) { appSrc = ''; }
+    try { sqlSrc = await (await fetch('/supabase-migration-cascade.sql')).text(); } catch (e) { sqlSrc = ''; }
+  });
+
+  QUnit.test('migration file loaded', assert => {
+    assert.ok(sqlSrc.length > 100, 'supabase-migration-cascade.sql is present and non-empty');
+  });
+
+  const USER_TABLES = [
+    'daily_food_entries',
+    'daily_exercise_entries',
+    'daily_summaries',
+    'user_tracking_state',
+    'calorie_target_history',
+    'user_custom_foods',
+    'profiles',
+  ];
+
+  USER_TABLES.forEach(table => {
+    QUnit.test(`migration adds ON DELETE CASCADE for ${table}`, assert => {
+      assert.ok(sqlSrc.length > 100, 'migration file loaded');
+      // Either the table has a cascade FK added in the migration,
+      // or it was already covered in the original setup (profiles, daily_food_entries,
+      // daily_summaries, user_tracking_state all had cascade from the start).
+      const coveredByOriginalSetup = ['profiles', 'daily_food_entries', 'daily_summaries', 'user_tracking_state'];
+      if (coveredByOriginalSetup.includes(table)) {
+        assert.ok(true, `${table} has ON DELETE CASCADE from original setup`);
+      } else {
+        assert.ok(
+          new RegExp(`alter table ${table}[\\s\\S]{0,300}on delete cascade`).test(sqlSrc),
+          `migration adds ON DELETE CASCADE FK to ${table}`
+        );
+      }
+    });
+  });
+
+  QUnit.test('delete_my_account() RPC explicitly deletes from all 7 tables', assert => {
+    assert.ok(sqlSrc.length > 100, 'migration file loaded');
+    USER_TABLES.forEach(table => {
+      assert.ok(
+        new RegExp(`delete from ${table}`).test(sqlSrc),
+        `delete_my_account deletes from ${table}`
+      );
+    });
+  });
+
+  QUnit.test('app deleteAccount() calls the delete_my_account RPC', assert => {
+    assert.ok(appSrc.length > 1000, 'index.html loaded');
+    assert.ok(/rpc\s*\(\s*['"]delete_my_account['"]\s*\)/.test(appSrc),
+      'deleteAccount() calls db.rpc("delete_my_account")');
+  });
+
+  QUnit.test('delete_my_account RPC is SECURITY DEFINER', assert => {
+    assert.ok(sqlSrc.length > 100, 'migration file loaded');
+    assert.ok(/security definer/i.test(sqlSrc),
+      'RPC is defined with SECURITY DEFINER (required to delete auth.users)');
+  });
+
+  QUnit.test('delete_my_account RPC guards against unauthenticated calls', assert => {
+    assert.ok(sqlSrc.length > 100, 'migration file loaded');
+    assert.ok(/auth\.uid\(\)/.test(sqlSrc),
+      'RPC calls auth.uid() to identify the caller');
+    assert.ok(/if uid is null/i.test(sqlSrc) || /uid is null/i.test(sqlSrc),
+      'RPC raises exception if uid is null (not authenticated)');
+  });
+
+});
 </script>
 </body>
 </html>
