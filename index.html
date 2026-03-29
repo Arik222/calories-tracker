@@ -235,6 +235,7 @@
       display: flex; align-items: center; gap: 8px;
       padding-bottom: 10px; border-bottom: 2px solid #f0f7f2;
     }
+    section h2.centered { justify-content: center; }
 
     /* ---------- Food rows ---------- */
     .food-item { display: flex; align-items: center; gap: 10px; padding: 9px 6px; border-bottom: 1px solid #f5f5f5; border-radius: 6px; transition: background 0.12s; }
@@ -602,7 +603,7 @@
 
     <div id="trackerView">
       <section>
-        <h2 style="text-align:center">רשימת מוצרים</h2>
+        <h2 class="centered">רשימת מוצרים</h2>
         <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
         <div id="defaultFoodList"></div>
       </section>
@@ -648,7 +649,7 @@
         </div>
       </div>
       <section>
-        <h2 style="text-align:center">📈 מאזן קלורי לאורך זמן</h2>
+        <h2 class="centered">📈 מאזן קלורי לאורך זמן</h2>
         <div class="chart-container">
           <canvas id="balanceChart"></canvas>
         </div>
