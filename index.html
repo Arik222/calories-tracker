@@ -89,6 +89,20 @@
     .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
     .auth-mode-toggle a:hover { text-decoration: underline; }
 
+    .btn-auth-google {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      width: 100%; padding: 13px 20px; border: 1.5px solid #e4e8e4;
+      border-radius: 10px; background: white; color: #333;
+      font-size: 0.97rem; font-weight: 600; cursor: pointer;
+      transition: border-color 0.18s, box-shadow 0.18s; font-family: inherit;
+    }
+    .btn-auth-google:hover { border-color: #2d6a4f; box-shadow: 0 0 0 3px rgba(45,106,79,0.1); }
+    .auth-divider { text-align: center; color: #bbb; font-size: 0.82rem; margin: 14px 0; position: relative; }
+    .auth-divider::before, .auth-divider::after {
+      content: ''; position: absolute; top: 50%; width: 42%; height: 1px; background: #e4e8e4;
+    }
+    .auth-divider::before { left: 0; } .auth-divider::after { right: 0; }
+
     /* Measure row (height/weight) */
     .measure-row { display: flex; gap: 8px; direction: ltr; }
     .measure-row input  { flex: 1; }
@@ -534,6 +548,12 @@
 
         <button id="btnSignIn" class="btn-auth-primary" onclick="signIn()">התחברות</button>
         <button id="btnSignUp" class="btn-auth-primary" onclick="signUp()" style="display:none">הרשמה</button>
+
+        <div class="auth-divider">או</div>
+        <button class="btn-auth-google" onclick="signInWithGoogle()">
+          <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332C2.438 15.983 5.482 18 9 18z"/><path fill="#FBBC05" d="M3.964 10.707c-.18-.54-.282-1.117-.282-1.707s.102-1.167.282-1.707V4.961H.957C.347 6.174 0 7.548 0 9s.348 2.826.957 4.039l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0 5.482 0 2.438 2.017.957 4.961L3.964 7.293C4.672 5.166 6.656 3.58 9 3.58z"/></svg>
+          התחברות עם Google
+        </button>
 
         <p class="auth-mode-toggle" id="toSignup">אין לך חשבון? <a href="#" onclick="setAuthMode('signup'); return false;">הרשמה</a></p>
         <p class="auth-mode-toggle" id="toSignin" style="display:none">כבר יש לך חשבון? <a href="#" onclick="setAuthMode('signin'); return false;">התחברות</a></p>
@@ -1098,6 +1118,14 @@
     if (error) {
       document.getElementById('authError').textContent = error.message;
     }
+  }
+
+  async function signInWithGoogle() {
+    const { error } = await db.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + window.location.pathname }
+    });
+    if (error) document.getElementById('authError').textContent = error.message;
   }
 
   async function signOut() {
