@@ -141,17 +141,17 @@
     .header-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
 
     @media (max-width: 600px) {
-      .header-top { flex-wrap: wrap; }
+      .header-top { flex-wrap: wrap; gap: 8px; }
       header h1 {
         position: static; transform: none;
         text-align: center; order: -1;
         flex-basis: 100%; margin-bottom: 10px;
         font-size: 1.25rem;
       }
-      .date-corner { flex: 1; align-items: flex-start; }
-      .header-right { flex: 0 0 auto !important; }
+      .date-corner { flex: 1; min-width: 0; align-items: flex-start; }
+      .header-right { flex: 0 0 auto !important; max-width: 120px; }
     }
-    #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-logout {
       background: rgba(255,255,255,0.14); color: white;
       border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
@@ -602,7 +602,7 @@
 
     <div id="trackerView">
       <section>
-        <h2>רשימת מוצרים</h2>
+        <h2 style="text-align:center">רשימת מוצרים</h2>
         <input type="text" id="searchInput" class="search-input" placeholder="חיפוש מוצר..." oninput="filterFoodList()" />
         <div id="defaultFoodList"></div>
       </section>
@@ -648,7 +648,7 @@
         </div>
       </div>
       <section>
-        <h2>📈 מאזן קלורי לאורך זמן</h2>
+        <h2 style="text-align:center">📈 מאזן קלורי לאורך זמן</h2>
         <div class="chart-container">
           <canvas id="balanceChart"></canvas>
         </div>
@@ -663,7 +663,7 @@
         <h2>הגדרות חשבון</h2>
 
         <div class="settings-personal">
-          <h3>פרטים אישיים</h3>
+          <h3 style="text-align:center">פרטים אישיים</h3>
           <div class="settings-field">
             <label>אימייל</label>
             <span class="email-val" id="settingsEmail">—</span>
@@ -701,9 +701,9 @@
         </div>
 
         <div class="settings-danger-zone">
-          <h3>מחיקת חשבון</h3>
+          <h3 style="text-align:center">מחיקת חשבון</h3>
           <p>מחיקת החשבון תמחק את כל הנתונים שלך לצמיתות — מזון, פעילות גופנית, גרפים ומוצרים מותאמים אישית. פעולה זו בלתי הפיכה.</p>
-          <button class="btn-delete-account" onclick="deleteAccount()">מחק חשבון</button>
+          <div style="text-align:center"><button class="btn-delete-account" onclick="deleteAccount()">מחק חשבון</button></div>
         </div>
       </section>
     </div>
