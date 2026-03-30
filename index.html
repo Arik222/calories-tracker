@@ -1546,7 +1546,7 @@
 
   // ─── Delete a single item from the active day ─────────────────
   async function deleteItem(row, foodName) {
-    // Remove from active date
+    // Remove entry for activeTrackingDate only (deleteEntry is scoped to activeTrackingDate)
     if (todayEntries[foodName]) {
       await deleteEntry(foodName);
       delete todayEntries[foodName];
