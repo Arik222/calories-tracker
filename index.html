@@ -841,6 +841,7 @@
   let profileTarget      = 2300;   // global default from profiles table
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
   let categoryStateCache = {};     // { [category_name]: is_collapsed } — loaded from user_category_state table
+  let suppressCatSave    = false;  // true during programmatic open/close (search) to avoid overwriting user state
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
 
@@ -852,6 +853,7 @@
     return categoryStateCache[cat] === undefined ? true : !categoryStateCache[cat];
   }
   function setCatState(cat, open) {
+    if (suppressCatSave) return;
     categoryStateCache[cat] = !open;
     saveCategoryState(cat, !open);
   }
@@ -1553,7 +1555,10 @@
       const name = (row._name || '').toLowerCase();
       row.style.display = (!query || name.includes(query)) ? '' : 'none';
     });
-    // Show/hide category groups and auto-open those with matches
+    // Show/hide category groups and auto-open those with matches.
+    // suppressCatSave prevents these programmatic open/close changes from
+    // overwriting the user's saved accordion state in the DB.
+    suppressCatSave = true;
     document.querySelectorAll('details.cat-group').forEach(details => {
       const hasVisible = Array.from(details.querySelectorAll('.food-item'))
         .some(r => r.style.display !== 'none');
@@ -1561,6 +1566,7 @@
       if (query && hasVisible) details.open = true;
       if (!query) details.open = getCatState(details.dataset.cat);
     });
+    suppressCatSave = false;
   }
 
   // ─── Delete a single item from the active day ─────────────────
