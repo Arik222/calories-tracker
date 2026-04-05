@@ -555,6 +555,23 @@ QUnit.module('Data Integrity', hooks => {
       'createFoodRow badge does not use savedEntry.calories_per_unit (single source of truth)');
   });
 
+  QUnit.test('category state persisted in DB: loadCategoryState / saveCategoryState use user_category_state table', assert => {
+    assert.ok(src.length > 1000, 'index.html loaded');
+    assert.ok(/async function loadCategoryState/.test(src),   'loadCategoryState is defined');
+    assert.ok(/async function saveCategoryState/.test(src),   'saveCategoryState is defined');
+    assert.ok(/user_category_state/.test(src),                'user_category_state table referenced');
+    assert.ok(/categoryStateCache/.test(src),                 'categoryStateCache in-memory store exists');
+    // getCatState must NOT read from localStorage
+    const getCatBody = src.match(/function getCatState[\s\S]+?(?=\n  function )/)?.[0] || '';
+    assert.notOk(/localStorage/.test(getCatBody), 'getCatState does not use localStorage');
+    // setCatState must NOT write to localStorage
+    const setCatBody = src.match(/function setCatState[\s\S]+?(?=\n  function )/)?.[0] || '';
+    assert.notOk(/localStorage/.test(setCatBody), 'setCatState does not use localStorage');
+    // loadCategoryState must be called during app init
+    assert.ok(/loadAndShowApp[\s\S]{0,500}loadCategoryState/.test(src),
+      'loadCategoryState is called in loadAndShowApp');
+  });
+
 });
 
 // ─────────────────────────────────────────────────────────────

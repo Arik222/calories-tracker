@@ -840,6 +840,7 @@
   let targetSaveTimer    = null;
   let profileTarget      = 2300;   // global default from profiles table
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
+  let categoryStateCache = {};     // { [category_name]: is_collapsed } — loaded from user_category_state table
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
 
@@ -847,12 +848,30 @@
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
 
   function getCatState(cat) {
-    try { const s = JSON.parse(localStorage.getItem('catState') || '{}'); return cat in s ? s[cat] : true; }
-    catch { return true; }
+    // Default: expanded (open). Cache stores is_collapsed so negate it.
+    return categoryStateCache[cat] === undefined ? true : !categoryStateCache[cat];
   }
   function setCatState(cat, open) {
-    try { const s = JSON.parse(localStorage.getItem('catState') || '{}'); s[cat] = open; localStorage.setItem('catState', JSON.stringify(s)); }
-    catch {}
+    categoryStateCache[cat] = !open;
+    saveCategoryState(cat, !open);
+  }
+
+  // ─── Category state persistence ──────────────────────────────
+  async function loadCategoryState() {
+    categoryStateCache = {};
+    const { data } = await db
+      .from('user_category_state')
+      .select('category_name, is_collapsed')
+      .eq('user_id', currentUser.id);
+    if (data) data.forEach(r => { categoryStateCache[r.category_name] = r.is_collapsed; });
+  }
+  async function saveCategoryState(cat, isCollapsed) {
+    await db
+      .from('user_category_state')
+      .upsert(
+        { user_id: currentUser.id, category_name: cat, is_collapsed: isCollapsed },
+        { onConflict: 'user_id,category_name' }
+      );
   }
 
   // ─── Predefined food list ────────────────────────────────────
@@ -2305,7 +2324,7 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
-    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget()]);
+    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
     showApp();
@@ -2334,6 +2353,7 @@
         currentUser        = null;
         activeTrackingDate = null;
         todayEntries       = {};
+        categoryStateCache = {};
         showAuth();
       }
     });
