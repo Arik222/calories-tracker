@@ -1356,6 +1356,7 @@
         food_name:         foodName,
         calories_per_unit: calPerUnit,
         quantity:          qty,
+        is_hidden:         false,
       },
       { onConflict: 'user_id,date,food_name' }
     );
@@ -1511,6 +1512,20 @@
           .eq('food_name', name)
           .gte('date', activeTrackingDate)
           .select();
+
+        // Insert a hidden sentinel for activeTrackingDate so the food stays hidden
+        // even if it had no prior entry. Checking the food again later will un-hide it.
+        await db.from('daily_food_entries').upsert(
+          {
+            user_id:           currentUser.id,
+            date:              activeTrackingDate,
+            food_name:         name,
+            calories_per_unit: 0,
+            quantity:          0,
+            is_hidden:         true,
+          },
+          { onConflict: 'user_id,date,food_name' }
+        );
 
         // Recalculate summaries for all affected dates
         if (affectedEntries && affectedEntries.length > 0) {
@@ -1981,11 +1996,13 @@
 
     foods.forEach((food, index) => {
       if (customFoodNames.has(food.name)) return;  // custom version takes precedence
+      if (todayEntries[food.name]?.is_hidden) return; // hidden via X-delete
       const cat = food.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
 
     customFoods.forEach((cf, i) => {
+      if (todayEntries[cf.food_name]?.is_hidden) return; // hidden via X-delete
       const food = { name: cf.food_name, cal: cf.calories_per_unit, unit: cf.unit || '' };
       const cat  = cf.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: 'cu_' + i, savedEntry: todayEntries[cf.food_name] });
@@ -1994,7 +2011,7 @@
     // Legacy: entries saved in DB that belong to no known food — show under 'אחר'
     const allKnown = new Set([...foods.map(f => f.name), ...customFoods.map(f => f.food_name)]);
     Object.values(todayEntries)
-      .filter(e => !allKnown.has(e.food_name))
+      .filter(e => !allKnown.has(e.food_name) && !e.is_hidden)
       .forEach(e => {
         const food = { name: e.food_name, cal: e.calories_per_unit };
         groups.get('אחר').push({ food, key: 'legacy_' + e.id, savedEntry: e });
