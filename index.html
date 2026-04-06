@@ -862,6 +862,7 @@
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
   let confirmDeleteResolve = null;  // resolves the delete confirmation modal
   let pendingCustomFoodRemovals = new Set(); // custom food names pending removal (deferred to Save)
+  let pendingFoodDeletions      = new Set(); // all X-deleted food names — propagated to future dates on Save
 
   // ─── Categories ──────────────────────────────────────────────
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
@@ -1087,6 +1088,7 @@
     // Switch to the new date
     activeTrackingDate = newDate;
     pendingCustomFoodRemovals.clear();
+    pendingFoodDeletions.clear();
     updateActiveDateDisplay();
 
     // Persist as the user's active tracking day
@@ -1490,7 +1492,34 @@
       exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
     }
 
-    // 6. Flush pending custom food removals (deferred from deleteItem)
+    // 6. Unified X-deletion: remove food from daily_food_entries for date >= activeTrackingDate
+    if (pendingFoodDeletions.size > 0) {
+      for (const name of pendingFoodDeletions) {
+        // Find all affected dates (current + future) for summary recalculation
+        const { data: affectedEntries } = await db
+          .from('daily_food_entries')
+          .select('date')
+          .eq('user_id', currentUser.id)
+          .eq('food_name', name)
+          .gte('date', activeTrackingDate);
+
+        // Delete in one operation across current + future dates
+        await db.from('daily_food_entries')
+          .delete()
+          .eq('user_id', currentUser.id)
+          .eq('food_name', name)
+          .gte('date', activeTrackingDate);
+
+        // Recalculate summaries for all affected dates
+        if (affectedEntries && affectedEntries.length > 0) {
+          const affectedDates = [...new Set(affectedEntries.map(e => e.date))];
+          await Promise.all(affectedDates.map(d => recalcSummaryForDate(d, false)));
+        }
+      }
+      pendingFoodDeletions.clear();
+    }
+
+    // 7. Flush pending custom food removals from user_custom_foods
     if (pendingCustomFoodRemovals.size > 0) {
       for (const name of pendingCustomFoodRemovals) {
         await db.from('user_custom_foods')
@@ -1501,13 +1530,13 @@
       pendingCustomFoodRemovals.clear();
     }
 
-    // 7. Recalculate daily_summaries from the entries just written
+    // 8. Recalculate daily_summaries from the entries just written
     await recalcSummaryForDate(activeTrackingDate, false);
 
-    // 7. Update snapshot — UI is now in sync with DB
+    // 9. Update snapshot — UI is now in sync with DB
     updateSnapshot();
 
-    // 8. Refresh graphs if that tab is currently visible
+    // 10. Refresh graphs if that tab is currently visible
     if (document.getElementById('graphsView').style.display !== 'none') {
       loadAndRenderGraphs();
     }
@@ -1623,14 +1652,15 @@
     }
     row.style.display = 'none';
 
-    // If it's a custom food, queue removal from user_custom_foods for when Save is clicked
+    // Track this food for future-date propagation on Save
+    pendingFoodDeletions.add(foodName);
+
+    // If it's a custom food, also queue removal from user_custom_foods
     const cfIdx = customFoods.findIndex(f => f.food_name === foodName);
     if (cfIdx >= 0) {
       pendingCustomFoodRemovals.add(foodName);
       customFoods.splice(cfIdx, 1);
     }
-    // Default foods: no global action needed — the row is unchecked,
-    // saveAllRows will delete the daily_food_entries row for activeTrackingDate only.
 
     updateTotal();
     updateSnapshot();
