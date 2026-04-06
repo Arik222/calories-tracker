@@ -1361,13 +1361,6 @@
     );
   }
 
-  async function deleteEntry(foodName) {
-    await db.from('daily_food_entries')
-      .delete()
-      .eq('user_id',   currentUser.id)
-      .eq('date',      activeTrackingDate)   // ← active day
-      .eq('food_name', foodName);
-  }
 
   // ─── Exercise entries ─────────────────────────────────────────
   async function loadExerciseEntries() {
@@ -1456,11 +1449,17 @@
       ops.push(upsertEntry(name, cal, qty));
     }
 
-    // 3. Delete only items that WERE in the DB and are now unchecked
-    //    (never delete based on unchecked UI rows that were never saved)
+    // 3. Delete items that WERE in the DB and are now unchecked (for activeTrackingDate only).
+    //    Skip X-deleted foods — those are handled in step 6 with gte across future dates.
     for (const name of Object.keys(todayEntries)) {
-      if (!checkedItems.has(name)) {
-        ops.push(deleteEntry(name));
+      if (!checkedItems.has(name) && !pendingFoodDeletions.has(name)) {
+        ops.push(
+          db.from('daily_food_entries')
+            .delete()
+            .eq('user_id',   currentUser.id)
+            .eq('date',      activeTrackingDate)
+            .eq('food_name', name)
+        );
       }
     }
 
@@ -1495,7 +1494,7 @@
     // 6. Unified X-deletion: remove food from daily_food_entries for date >= activeTrackingDate
     if (pendingFoodDeletions.size > 0) {
       for (const name of pendingFoodDeletions) {
-        // Find all affected dates (current + future) for summary recalculation
+        // Find affected dates (current + future) for summary recalculation
         const { data: affectedEntries } = await db
           .from('daily_food_entries')
           .select('date')
