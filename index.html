@@ -2,14 +2,15 @@
 <html lang="he" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
   <title>מעקב קלוריות</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Heebo', 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; direction: rtl; }
+    body { font-family: 'Heebo', 'Segoe UI', Arial, sans-serif; background: #f4f6f9; color: #222; direction: rtl; overflow-x: hidden; }
+    html { overflow-x: hidden; }
 
     /* ---------- Loading overlay ---------- */
     #loadingOverlay {
@@ -260,8 +261,10 @@
     /* ---------- Delete / Edit row buttons ---------- */
     .btn-delete-item, .btn-edit-item {
       background: none; border: none; color: #ccc;
-      cursor: pointer; font-size: 1rem; padding: 2px 5px;
+      cursor: pointer; font-size: 1rem; padding: 8px;
       line-height: 1; flex-shrink: 0;
+      min-width: 36px; min-height: 36px;
+      display: flex; align-items: center; justify-content: center;
     }
     .btn-delete-item:hover { color: #e53935; }
     .btn-edit-item:hover   { color: #2d6a4f; }
@@ -713,6 +716,17 @@
   <!-- Floating help button -->
   <button class="btn-help" onclick="openHelp()" title="עזרה">?</button>
 
+  <!-- Confirm delete modal -->
+  <div id="confirmDeleteModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="modal-card">
+        <p>להסיר את המוצר מהרשימה?<br>השינוי יישמר רק לאחר לחיצה על שמור.</p>
+        <button class="modal-btn-save"   onclick="confirmDeleteRespond('confirm')">הסר</button>
+        <button class="modal-btn-cancel" onclick="confirmDeleteRespond('cancel')">ביטול</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Unsaved changes modal (date switch) -->
   <div id="unsavedModal" style="display:none">
     <div class="modal-overlay">
@@ -844,6 +858,9 @@
   let suppressCatSave    = false;  // true during programmatic open/close (search) to avoid overwriting user state
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
+  let confirmDeleteResolve = null;  // resolves the delete confirmation modal
+  let pendingCustomFoodRemovals = new Set(); // custom food names pending removal (deferred to Save)
+  let hiddenDefaultFoods   = new Set(); // default food names hidden by user (loaded from user_hidden_default_foods)
 
   // ─── Categories ──────────────────────────────────────────────
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
@@ -1028,6 +1045,18 @@
     if (modalResolve) { modalResolve(choice); modalResolve = null; }
   }
 
+  function showConfirmDeleteModal() {
+    return new Promise(resolve => {
+      confirmDeleteResolve = resolve;
+      document.getElementById('confirmDeleteModal').style.display = 'block';
+    });
+  }
+
+  function confirmDeleteRespond(choice) {
+    document.getElementById('confirmDeleteModal').style.display = 'none';
+    if (confirmDeleteResolve) { confirmDeleteResolve(choice); confirmDeleteResolve = null; }
+  }
+
   function showFinalizeModal() {
     return new Promise(resolve => {
       finalizeModalResolve = resolve;
@@ -1056,6 +1085,7 @@
 
     // Switch to the new date
     activeTrackingDate = newDate;
+    pendingCustomFoodRemovals.clear();
     updateActiveDateDisplay();
 
     // Persist as the user's active tracking day
@@ -1291,6 +1321,21 @@
     updateActiveDateDisplay();
   }
 
+  // ─── Hidden default foods (per-user, DB) ─────────────────────────
+  async function loadHiddenDefaultFoods() {
+    const { data } = await db
+      .from('user_hidden_default_foods')
+      .select('food_name')
+      .eq('user_id', currentUser.id);
+    hiddenDefaultFoods = new Set((data || []).map(r => r.food_name));
+  }
+  async function hideDefaultFood(foodName) {
+    hiddenDefaultFoods.add(foodName);
+    await db.from('user_hidden_default_foods')
+      .upsert({ user_id: currentUser.id, food_name: foodName },
+               { onConflict: 'user_id,food_name' });
+  }
+
   // ─── User custom foods (permanent list) ─────────────────────────
   async function loadCustomFoods() {
     const { data } = await db
@@ -1459,7 +1504,18 @@
       exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
     }
 
-    // 6. Recalculate daily_summaries from the entries just written
+    // 6. Flush pending custom food removals (deferred from deleteItem)
+    if (pendingCustomFoodRemovals.size > 0) {
+      for (const name of pendingCustomFoodRemovals) {
+        await db.from('user_custom_foods')
+          .delete()
+          .eq('user_id', currentUser.id)
+          .eq('food_name', name);
+      }
+      pendingCustomFoodRemovals.clear();
+    }
+
+    // 7. Recalculate daily_summaries from the entries just written
     await recalcSummaryForDate(activeTrackingDate, false);
 
     // 7. Update snapshot — UI is now in sync with DB
@@ -1571,23 +1627,26 @@
 
   // ─── Delete a single item from the active day ─────────────────
   async function deleteItem(row, foodName) {
-    // Remove entry for activeTrackingDate only (deleteEntry is scoped to activeTrackingDate)
-    if (todayEntries[foodName]) {
-      await deleteEntry(foodName);
-      delete todayEntries[foodName];
-    }
+    const choice = await showConfirmDeleteModal();
+    if (choice !== 'confirm') return;
 
-    // If it's a custom food, remove from user_custom_foods so it won't appear on future days
+    // Uncheck and visually hide the row — no DB writes yet
+    if (row._cb) {
+      row._cb.checked = false;
+      row.classList.add('unchecked');
+    }
+    row.style.display = 'none';
+
     const cfIdx = customFoods.findIndex(f => f.food_name === foodName);
     if (cfIdx >= 0) {
-      await db.from('user_custom_foods')
-        .delete()
-        .eq('user_id', currentUser.id)
-        .eq('food_name', foodName);
+      // Custom food: queue DB removal for when Save is clicked
+      pendingCustomFoodRemovals.add(foodName);
       customFoods.splice(cfIdx, 1);
+    } else {
+      // Default food: persist removal to DB immediately (same as custom food removal)
+      await hideDefaultFood(foodName);
     }
 
-    row.remove();
     updateTotal();
     updateSnapshot();
   }
@@ -1904,7 +1963,8 @@
     const customFoodNames = new Set(customFoods.map(f => f.food_name));
 
     foods.forEach((food, index) => {
-      if (customFoodNames.has(food.name)) return; // custom version takes precedence
+      if (customFoodNames.has(food.name)) return;  // custom version takes precedence
+      if (hiddenDefaultFoods.has(food.name)) return; // user removed this default food
       const cat = food.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
@@ -2330,11 +2390,18 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
-    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
+    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState(), loadHiddenDefaultFoods()]);
     populateCategorySelect();
     buildList();
     showApp();
   }
+
+  // Scroll focused inputs into view on mobile (prevents keyboard hiding input)
+  document.addEventListener('focusin', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+      setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+    }
+  }, { passive: true });
 
   async function init() {
     try {
