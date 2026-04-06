@@ -862,7 +862,6 @@
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
   let confirmDeleteResolve = null;  // resolves the delete confirmation modal
   let pendingCustomFoodRemovals = new Set(); // custom food names pending removal (deferred to Save)
-  let hiddenDefaultFoods   = new Set(); // default food names hidden by user (loaded from user_hidden_default_foods)
 
   // ─── Categories ──────────────────────────────────────────────
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
@@ -1323,21 +1322,6 @@
     updateActiveDateDisplay();
   }
 
-  // ─── Hidden default foods (per-user, DB) ─────────────────────────
-  async function loadHiddenDefaultFoods() {
-    const { data } = await db
-      .from('user_hidden_default_foods')
-      .select('food_name')
-      .eq('user_id', currentUser.id);
-    hiddenDefaultFoods = new Set((data || []).map(r => r.food_name));
-  }
-  async function hideDefaultFood(foodName) {
-    hiddenDefaultFoods.add(foodName);
-    await db.from('user_hidden_default_foods')
-      .upsert({ user_id: currentUser.id, food_name: foodName },
-               { onConflict: 'user_id,food_name' });
-  }
-
   // ─── User custom foods (permanent list) ─────────────────────────
   async function loadCustomFoods() {
     const { data } = await db
@@ -1639,15 +1623,14 @@
     }
     row.style.display = 'none';
 
+    // If it's a custom food, queue removal from user_custom_foods for when Save is clicked
     const cfIdx = customFoods.findIndex(f => f.food_name === foodName);
     if (cfIdx >= 0) {
-      // Custom food: queue DB removal for when Save is clicked
       pendingCustomFoodRemovals.add(foodName);
       customFoods.splice(cfIdx, 1);
-    } else {
-      // Default food: persist removal to DB immediately (same as custom food removal)
-      await hideDefaultFood(foodName);
     }
+    // Default foods: no global action needed — the row is unchecked,
+    // saveAllRows will delete the daily_food_entries row for activeTrackingDate only.
 
     updateTotal();
     updateSnapshot();
@@ -1966,7 +1949,6 @@
 
     foods.forEach((food, index) => {
       if (customFoodNames.has(food.name)) return;  // custom version takes precedence
-      if (hiddenDefaultFoods.has(food.name)) return; // user removed this default food
       const cat = food.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
@@ -2392,7 +2374,7 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
-    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState(), loadHiddenDefaultFoods()]);
+    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
     showApp();
