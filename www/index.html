@@ -863,6 +863,7 @@
   let confirmDeleteResolve = null;  // resolves the delete confirmation modal
   let pendingCustomFoodRemovals = new Set(); // custom food names pending removal (deferred to Save)
   let pendingFoodDeletions      = new Set(); // all X-deleted food names — propagated to future dates on Save
+  let foodVisibility            = {};        // { food_name: hidden_from_date } — loaded from user_food_visibility
 
   // ─── Categories ──────────────────────────────────────────────
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
@@ -1334,6 +1335,16 @@
     customFoods = data || [];
   }
 
+  // ─── Food visibility (hidden-from-date records) ───────────────
+  async function loadFoodVisibility() {
+    const { data } = await db
+      .from('user_food_visibility')
+      .select('food_name, hidden_from_date')
+      .eq('user_id', currentUser.id);
+    foodVisibility = {};
+    if (data) data.forEach(r => { foodVisibility[r.food_name] = r.hidden_from_date; });
+  }
+
   // ─── Daily food entries ───────────────────────────────────────
   async function loadTodayEntries() {
     const { data } = await db
@@ -1356,10 +1367,17 @@
         food_name:         foodName,
         calories_per_unit: calPerUnit,
         quantity:          qty,
-        is_hidden:         false,
       },
       { onConflict: 'user_id,date,food_name' }
     );
+    // If this food was hidden, un-hide it now that the user is explicitly checking it.
+    if (foodVisibility[foodName]) {
+      await db.from('user_food_visibility')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('food_name', foodName);
+      delete foodVisibility[foodName];
+    }
   }
 
 
@@ -1505,7 +1523,7 @@
           .eq('food_name', name)
           .gte('date', activeTrackingDate);
 
-        // Delete across current + future dates. .select() ensures the query is sent.
+        // Delete existing entries for this food across current + future dates.
         await db.from('daily_food_entries')
           .delete()
           .eq('user_id', currentUser.id)
@@ -1513,19 +1531,13 @@
           .gte('date', activeTrackingDate)
           .select();
 
-        // Insert a hidden sentinel for activeTrackingDate so the food stays hidden
-        // even if it had no prior entry. Checking the food again later will un-hide it.
-        await db.from('daily_food_entries').upsert(
-          {
-            user_id:           currentUser.id,
-            date:              activeTrackingDate,
-            food_name:         name,
-            calories_per_unit: 0,
-            quantity:          0,
-            is_hidden:         true,
-          },
-          { onConflict: 'user_id,date,food_name' }
+        // Record that this food is hidden from activeTrackingDate forward.
+        // This persists across devices and covers dates with no prior entry.
+        await db.from('user_food_visibility').upsert(
+          { user_id: currentUser.id, food_name: name, hidden_from_date: activeTrackingDate },
+          { onConflict: 'user_id,food_name' }
         );
+        foodVisibility[name] = activeTrackingDate;
 
         // Recalculate summaries for all affected dates
         if (affectedEntries && affectedEntries.length > 0) {
@@ -1996,13 +2008,13 @@
 
     foods.forEach((food, index) => {
       if (customFoodNames.has(food.name)) return;  // custom version takes precedence
-      if (todayEntries[food.name]?.is_hidden) return; // hidden via X-delete
+      if (foodVisibility[food.name] && activeTrackingDate >= foodVisibility[food.name]) return; // hidden from this date forward
       const cat = food.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: index, savedEntry: todayEntries[food.name] });
     });
 
     customFoods.forEach((cf, i) => {
-      if (todayEntries[cf.food_name]?.is_hidden) return; // hidden via X-delete
+      if (foodVisibility[cf.food_name] && activeTrackingDate >= foodVisibility[cf.food_name]) return; // hidden from this date forward
       const food = { name: cf.food_name, cal: cf.calories_per_unit, unit: cf.unit || '' };
       const cat  = cf.category || 'אחר';
       (groups.get(cat) || groups.get('אחר')).push({ food, key: 'cu_' + i, savedEntry: todayEntries[cf.food_name] });
@@ -2011,7 +2023,7 @@
     // Legacy: entries saved in DB that belong to no known food — show under 'אחר'
     const allKnown = new Set([...foods.map(f => f.name), ...customFoods.map(f => f.food_name)]);
     Object.values(todayEntries)
-      .filter(e => !allKnown.has(e.food_name) && !e.is_hidden)
+      .filter(e => !allKnown.has(e.food_name))
       .forEach(e => {
         const food = { name: e.food_name, cal: e.calories_per_unit };
         groups.get('אחר').push({ food, key: 'legacy_' + e.id, savedEntry: e });
@@ -2423,7 +2435,7 @@
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
-    await Promise.all([loadCustomFoods(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
+    await Promise.all([loadCustomFoods(), loadFoodVisibility(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
     showApp();
