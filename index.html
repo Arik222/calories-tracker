@@ -1459,6 +1459,7 @@
             .eq('user_id',   currentUser.id)
             .eq('date',      activeTrackingDate)
             .eq('food_name', name)
+            .select()
         );
       }
     }
@@ -1491,8 +1492,9 @@
       exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
     }
 
-    // 6. Unified X-deletion: remove food from daily_food_entries for date >= activeTrackingDate
-    if (pendingFoodDeletions.size > 0) {
+    // 6. Unified X-deletion: remove food from daily_food_entries for date >= activeTrackingDate.
+    //    This is the ONLY delete path for X-deleted foods. Runs unconditionally for each queued food.
+    if (pendingFoodDeletions.size > 0 && activeTrackingDate) {
       for (const name of pendingFoodDeletions) {
         // Find affected dates (current + future) for summary recalculation
         const { data: affectedEntries } = await db
@@ -1502,12 +1504,13 @@
           .eq('food_name', name)
           .gte('date', activeTrackingDate);
 
-        // Delete in one operation across current + future dates
+        // Delete across current + future dates. .select() ensures the query is sent.
         await db.from('daily_food_entries')
           .delete()
           .eq('user_id', currentUser.id)
           .eq('food_name', name)
-          .gte('date', activeTrackingDate);
+          .gte('date', activeTrackingDate)
+          .select();
 
         // Recalculate summaries for all affected dates
         if (affectedEntries && affectedEntries.length > 0) {
