@@ -876,6 +876,14 @@
   let pendingFoodDeletions      = new Set(); // all X-deleted food names — propagated to future dates on Save
   let foodVisibility            = {};        // { food_name: hidden_from_date } — loaded from user_food_visibility
 
+  // ─── Unit display ─────────────────────────────────────────────
+  function formatUnit(unit) {
+    if (!unit) return '';
+    if (unit === 'יחידה') return 'יח׳';
+    if (unit === 'גרם')   return 'ג׳';
+    return unit;
+  }
+
   // ─── Categories ──────────────────────────────────────────────
   const CATEGORIES = ['פירות','ירקות','חלבונים','פחמימות','קטניות','מוצרי חלב','שומנים ורטבים','מתוקים ונשנושים','משקאות','אחר'];
 
@@ -1864,7 +1872,7 @@
     // 7. Update row UI
     row._cal  = newCal;
     row._name = newName;
-    row._badge.textContent     = newCal  + ' קל׳' + (row._unit ? ' / ' + row._unit : '');
+    row._badge.textContent     = newCal  + ' קל׳' + (row._unit ? ' / ' + formatUnit(row._unit) : '');
     row._nameLabel.textContent = newName;
 
     updateTotal();
@@ -1977,7 +1985,7 @@
 
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
-    badge.textContent = ex.cal + ' קל׳ / ' + ex.unit;
+    badge.textContent = ex.cal + ' קל׳ / ' + formatUnit(ex.unit);
 
     const qty = document.createElement('input');
     qty.type  = 'number';
@@ -2109,7 +2117,7 @@
     const badgeCal = food.cal;
     const badge = document.createElement('span');
     badge.className   = 'cal-badge';
-    badge.textContent = badgeCal + ' קל׳' + (food.unit ? ' / ' + food.unit : '');
+    badge.textContent = badgeCal + ' קל׳' + (food.unit ? ' / ' + formatUnit(food.unit) : '');
 
     const qty = document.createElement('input');
     qty.type  = 'number';
