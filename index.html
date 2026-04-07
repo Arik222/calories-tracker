@@ -2004,7 +2004,9 @@
   // ─── Build the food list ──────────────────────────────────────
   function buildList() {
     const container = document.getElementById('defaultFoodList');
+    suppressCatSave = true;
     container.innerHTML = '';
+    suppressCatSave = false;
 
     // Merge default foods and custom foods into shared category groups.
     // Custom foods take precedence — if a custom food has the same name as a default food,
