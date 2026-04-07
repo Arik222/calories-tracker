@@ -154,11 +154,15 @@
       .date-corner { flex: 1; min-width: 0; align-items: flex-start; }
       .header-right { flex: 0 0 auto !important; max-width: 120px; }
 
-      /* Tighten food rows on narrow screens so the name gets enough space */
-      .food-item { gap: 5px; }
-      .food-item input[type="number"] { width: 44px; font-size: 0.88rem; padding: 3px 2px; }
-      .food-item .cal-badge { font-size: 0.7rem; padding: 2px 4px; max-width: 72px; }
-      .btn-delete-item, .btn-edit-item { padding: 3px; min-width: 26px; min-height: 26px; font-size: 0.9rem; }
+      /* Expand container to use full screen width on mobile */
+      main { padding: 10px 6px 110px; }
+      section { padding: 12px 10px; }
+
+      /* Tighten food rows so the name gets maximum space */
+      .food-item { gap: 4px; padding: 7px 2px; }
+      .food-item input[type="number"] { width: 40px; font-size: 0.85rem; padding: 3px 1px; }
+      .food-item .cal-badge { font-size: 0.68rem; padding: 2px 4px; max-width: 68px; }
+      .btn-delete-item, .btn-edit-item { padding: 2px; min-width: 24px; min-height: 24px; font-size: 0.85rem; }
     }
     #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-logout {
