@@ -1690,6 +1690,11 @@
     buildList();
     updateTotal();
 
+    // 6. Refresh graphs so completed-days counter updates immediately
+    if (document.getElementById('graphsView').style.display !== 'none') {
+      loadAndRenderGraphs();
+    }
+
     btn.disabled = false;
   }
 
