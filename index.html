@@ -152,17 +152,8 @@
         font-size: 1.25rem;
       }
       .date-corner { flex: 1; min-width: 0; align-items: flex-start; }
-      .header-right { flex: 0 0 auto !important; max-width: 120px; gap: 6px; }
-
-      /* Slightly smaller email + logout, more breathing room */
-      #userEmail    { font-size: 0.62rem; }
-      .btn-logout   { padding: 6px 9px; font-size: 0.68rem; min-height: 30px; }
-
-      /* Gap between header-right and date-corner */
+      .header-right { flex: 0 0 auto !important; max-width: 120px; }
       .header-top   { gap: 10px; }
-
-      /* Push calorie balance section down slightly */
-      .summary-bar  { margin-top: 10px; }
     }
     #userEmail { font-size: 0.7rem; opacity: 0.65; direction: ltr; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .btn-logout {
@@ -559,6 +550,28 @@
         padding: 0 !important;
         font-size: 0.9rem !important;
       }
+
+      /* ── Header polish ── */
+      /* Add internal top padding to the whole header — pushes all content down */
+      header { padding-top: 22px !important; }
+
+      /* Smaller email */
+      #userEmail { font-size: 0.6rem !important; }
+
+      /* Smaller logout button */
+      .btn-logout {
+        padding: 5px 8px !important;
+        font-size: 0.66rem !important;
+        min-height: 28px !important;
+      }
+
+      /* More gap between header-right items (email + button) */
+      .header-right { gap: 6px !important; }
+
+      /* Smaller date-corner pill */
+      .date-corner { padding: 5px 9px !important; gap: 3px !important; }
+      .date-corner .date-label { font-size: 0.72rem !important; }
+      .btn-change-date-wrap { font-size: 0.68rem !important; padding: 3px 7px !important; }
     }
   </style>
 </head>
