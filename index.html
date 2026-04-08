@@ -573,17 +573,22 @@
       .btn-change-date-wrap {
         font-size: 0.68rem !important;
         padding: 3px 6px !important;
-        width: fit-content !important;
-        max-width: 75% !important;
-        white-space: nowrap !important;
-        display: flex !important;
+        /* Prevent stretching inside .date-corner column */
+        align-self: flex-end !important;
+        width: auto !important;
+        max-width: 100% !important;
+        display: inline-flex !important;
         align-items: center !important;
         justify-content: flex-end !important;
         direction: rtl !important;
+        white-space: nowrap !important;
       }
       .btn-change-date-wrap > span {
         direction: rtl !important;
         text-align: right !important;
+        flex-shrink: 1 !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
       }
 
       /* Push calorie balance section down */
