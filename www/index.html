@@ -552,9 +552,6 @@
       }
 
       /* ── Header polish ── */
-      /* Add internal top padding to the whole header — pushes all content down */
-      header { padding-top: 22px !important; }
-
       /* Smaller email */
       #userEmail { font-size: 0.6rem !important; }
 
@@ -571,7 +568,20 @@
       /* Smaller date-corner pill */
       .date-corner { padding: 5px 9px !important; gap: 3px !important; }
       .date-corner .date-label { font-size: 0.72rem !important; }
-      .btn-change-date-wrap { font-size: 0.68rem !important; padding: 3px 7px !important; }
+
+      /* Date button: compact, RTL-aligned, content-width */
+      .btn-change-date-wrap {
+        font-size: 0.68rem !important;
+        padding: 3px 6px !important;
+        width: fit-content !important;
+        max-width: 75% !important;
+        direction: rtl !important;
+        text-align: right !important;
+        white-space: nowrap !important;
+      }
+
+      /* Push calorie balance section down */
+      .target-row { margin-top: 14px !important; }
     }
   </style>
 </head>
