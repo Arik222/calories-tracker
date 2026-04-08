@@ -273,6 +273,12 @@
     .btn-delete-item:hover { color: #e53935; }
     .btn-edit-item:hover   { color: #2d6a4f; }
 
+    /* ---------- Button wrapper ---------- */
+    .left-actions {
+      display: flex; align-items: center; justify-content: flex-start;
+      gap: 2px; flex-shrink: 0; width: 60px;
+    }
+
     /* ---------- Inline edit inputs ---------- */
     .edit-name-input {
       flex: 1; padding: 3px 6px; font-size: 0.9rem;
@@ -498,8 +504,9 @@
       .food-item input[type="number"] { width: 34px !important; font-size: 0.82rem !important; padding: 2px 1px !important; }
       .food-item .name             { max-width: 52% !important; }
       .food-item .cal-badge        { font-size: 0.68rem !important; padding: 2px 3px !important; max-width: none !important; flex-shrink: 0 !important; }
+      .left-actions                { width: 60px !important; gap: 4px !important; flex-shrink: 0 !important; }
       .btn-delete-item,
-      .btn-edit-item               { padding: 3px 2px !important; min-width: 26px !important; min-height: 36px !important; font-size: 0.88rem !important; flex-shrink: 1 !important; }
+      .btn-edit-item               { width: 26px !important; height: 26px !important; min-width: 26px !important; min-height: 26px !important; padding: 0 !important; font-size: 0.9rem !important; flex-shrink: 0 !important; }
     }
   </style>
 </head>
@@ -2149,12 +2156,16 @@
     editBtn.onclick = () => startEditRow(row);
     delBtn.addEventListener('click',  () => deleteItem(row, food.name));
 
+    const leftActions = document.createElement('div');
+    leftActions.className = 'left-actions';
+    leftActions.appendChild(editBtn);
+    leftActions.appendChild(delBtn);
+
     row.appendChild(cb);
     row.appendChild(label);
     row.appendChild(badge);
     row.appendChild(qty);
-    row.appendChild(editBtn);
-    row.appendChild(delBtn);
+    row.appendChild(leftActions);
 
     row._cb        = cb;
     row._qty       = qty;
