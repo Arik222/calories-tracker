@@ -565,25 +565,44 @@
       /* More gap between header-right items (email + button) */
       .header-right { gap: 6px !important; }
 
-      /* Date corner pill: limit width so it doesn't span full row */
+      /* Date corner pill: RTL column, width constrained */
       .date-corner {
         flex: 0 1 auto !important;
         padding: 5px 9px !important;
         gap: 3px !important;
+        max-width: 90% !important;
         width: fit-content !important;
-        max-width: 48% !important;
+        direction: rtl !important;
+        align-items: flex-end !important;
+        overflow: hidden !important;
       }
-      .date-corner .date-label { font-size: 0.72rem !important; }
+      .date-corner .date-label {
+        font-size: 0.72rem !important;
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
+      }
 
-      /* Date button: content-sized, RTL */
+      /* Date button: flex column, both lines RTL right-aligned */
       .btn-change-date-wrap {
         font-size: 0.68rem !important;
         padding: 3px 6px !important;
-        display: inline-flex !important;
-        align-self: flex-start !important;
-        width: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-end !important;
         direction: rtl !important;
-        white-space: nowrap !important;
+        text-align: right !important;
+        width: fit-content !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        align-self: stretch !important;
+      }
+      .btn-change-date-wrap > span {
+        direction: rtl !important;
+        text-align: right !important;
+        width: 100% !important;
       }
 
       /* Push calorie balance row down inside header + thin separator */
