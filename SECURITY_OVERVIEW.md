@@ -39,7 +39,7 @@ The app intentionally has no intermediary server. All data access is mediated by
 ### Authentication mechanism
 
 - **Provider:** Supabase Auth (email/password + Google OAuth)
-- **Session storage:** Supabase JS SDK stores the session JWT in `localStorage`
+- **Session storage:** Supabase JS SDK stores the session JWT in `localStorage`. This means the token is accessible to any JavaScript running on the page — including injected scripts if an XSS vector were found. An attacker with XSS access could extract the JWT and make authenticated Supabase requests until the token expires. `sessionStorage` or `HttpOnly` cookies would limit this exposure but are not currently used.
 - **Session recovery:** `db.auth.getSession()` is called on page load; `onAuthStateChange` handles token refresh and sign-out events
 - **User identity in JS:** `currentUser` is assigned exclusively from `db.auth.getUser()` or the `onAuthStateChange` callback — never from DOM input or URL parameters
 
@@ -74,9 +74,15 @@ Row Level Security is enabled on every user-data table. No table is accessible w
 | `user_category_state` | SELECT, INSERT, UPDATE, DELETE | `auth.uid() = user_id` |
 | `user_food_visibility` | SELECT, INSERT, UPDATE, DELETE | `auth.uid() = user_id` |
 
-### Critical property
+### INSERT user_id enforcement
 
-**A client cannot bypass RLS.** The anon key grants only the ability to call the Supabase API as an unauthenticated or authenticated user. RLS policies are enforced by Postgres itself after the JWT is verified — they run inside the database engine, not in application code. Even if client-side JavaScript is fully compromised, an attacker cannot read or write another user's rows.
+All INSERT and UPSERT operations supply `user_id: currentUser.id` from the authenticated session. However, this alone is not the enforcement boundary — it is the `WITH CHECK (auth.uid() = user_id)` clause on each INSERT policy that actually enforces it at the database level. If the client were to supply a different `user_id`, Postgres would reject the write. The client-side value is correct for normal operation; the database policy is the authoritative guard.
+
+### RLS as the authoritative control
+
+RLS policies are enforced by Postgres after the JWT is verified — they run inside the database engine, not in application code. The anon key grants only the ability to make authenticated API calls; it does not grant elevated privileges. Under normal conditions, a client operating with a valid user JWT cannot read or write another user's rows.
+
+That said, RLS is only as strong as the policies written. A missing `WITH CHECK` clause, an overly broad `USING` expression, or a misconfigured policy on any table would allow unintended cross-user access. Policy correctness must be verified directly in the Supabase dashboard and is the primary risk surface in this architecture.
 
 ### RPC functions
 
@@ -148,8 +154,9 @@ The entire application — approximately 2,600 lines of JavaScript and all CSS �
 
 ### Known CSP limitations
 
-- `'unsafe-inline'` on `script-src` means an injected inline script would not be blocked by CSP. The defense against XSS is therefore the DOM API discipline described in Section 4, not CSP.
-- The current architecture makes it impossible to eliminate `'unsafe-inline'` without restructuring the app into separate JS files.
+- `'unsafe-inline'` on `script-src` means CSP provides **no protection** if an XSS injection point exists. Any injected inline script runs with full page privileges. The sole XSS defense is the DOM API discipline described in Section 4.
+- If an XSS vector were exploited: the attacker's script could read `localStorage` (including the Supabase JWT), call Supabase APIs as the victim user, and exfiltrate data — but only to `*.supabase.co` or `cdn.jsdelivr.net` due to `connect-src`. Exfiltration to an arbitrary attacker-controlled host is blocked.
+- The current single-file architecture makes it impractical to eliminate `'unsafe-inline'` without restructuring the app into separate `.js` files.
 
 ---
 
@@ -193,4 +200,13 @@ The primary security model of this app is:
 4. **CSP** provides defense-in-depth against data exfiltration even if an XSS vector were found
 5. **No secrets** are exposed client-side
 
-The main architectural risk is inherent to the serverless/BaaS model: correctness of RLS policies is critical. A missing or incorrect policy on any table would allow cross-user data access. Policy correctness should be verified directly in Supabase.
+The main architectural risks, in order of likelihood and impact:
+
+| Scenario | Likelihood | Impact | Mitigated by |
+|----------|-----------|--------|-------------|
+| Misconfigured RLS policy allows cross-user read/write | Low (policies are simple and uniform) | High | Policy review in Supabase dashboard |
+| XSS via future code change introducing unsafe DOM sink | Low (current code is clean) | High — JWT in localStorage is accessible | DOM API discipline; code review |
+| CDN supply-chain attack (cdn.jsdelivr.net serves malicious JS) | Very low | High — full page compromise | Subresource Integrity (SRI) not currently used; an improvement to consider |
+| Stolen session JWT used from another device | Low | Medium — scoped to victim's own data only | Supabase token expiry and refresh rotation |
+
+Policy correctness and DOM API hygiene are the two controls that must be maintained as the app evolves.
