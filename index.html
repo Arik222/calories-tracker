@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content" />
-  <title>מעקב קלוריות</title>
+<title>מעקב קלוריות</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1426,7 +1426,7 @@
     updateTotal();
     clearTimeout(targetSaveTimer);
     targetSaveTimer = setTimeout(async () => {
-      const val = parseInt(document.getElementById('targetInput').value) || 2300;
+      const val = Math.max(0, parseInt(document.getElementById('targetInput').value) || 2300);
       profileTarget = val;
       // Upsert a record for today's active date — leaves past dates untouched
       await db.from('calorie_target_history').upsert(
