@@ -672,6 +672,13 @@
             <option value="female">נקבה</option>
             <option value="other">אחר</option>
           </select>
+
+          <div style="display:flex; align-items:flex-start; gap:10px; direction:rtl; margin-top:4px;">
+            <input type="checkbox" id="termsCheckbox" style="margin-top:3px; flex-shrink:0; width:16px; height:16px; cursor:pointer;" />
+            <label for="termsCheckbox" style="font-size:0.86rem; color:rgba(255,255,255,0.85); line-height:1.5; cursor:pointer;">
+              קראתי ואני מסכים/ה ל<a href="#" onclick="showTermsModal(); return false;" style="color:white; text-decoration:underline;">תקנון השימוש</a>
+            </label>
+          </div>
         </div>
 
         <div id="authError"></div>
@@ -960,8 +967,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
 <script>
-  const SUPABASE_URL = 'https://xvvubmznbmzakpnayovs.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_eWXY6xJeBLMK4EgPalucsQ_8nsCf9yL';
+  const SUPABASE_URL  = 'https://xvvubmznbmzakpnayovs.supabase.co';
+  const SUPABASE_KEY  = 'sb_publishable_eWXY6xJeBLMK4EgPalucsQ_8nsCf9yL';
+  const TERMS_VERSION = '2026-04-16';
 </script>
 <script>
 
@@ -1269,11 +1277,26 @@
     document.getElementById('toSignin').style.display     = isSignup ? '' : 'none';
     document.getElementById('authFormTitle').textContent  = isSignup ? 'יצירת חשבון' : 'ברוך הבא';
     document.getElementById('authSubtitle').textContent   = isSignup ? 'מלא את הפרטים כדי להתחיל' : 'התחבר כדי לשמור את הנתונים שלך';
+    if (!isSignup) document.getElementById('termsCheckbox').checked = false;
     clearAuthMessages();
+  }
+
+  function showTermsModal() {
+    document.getElementById('termsModal').style.display = 'flex';
+  }
+
+  function closeTermsModal() {
+    document.getElementById('termsModal').style.display = 'none';
   }
 
   async function signUp() {
     clearAuthMessages();
+
+    if (!document.getElementById('termsCheckbox').checked) {
+      document.getElementById('authError').textContent = 'יש לאשר את תקנון השימוש כדי להמשיך.';
+      return;
+    }
+
     const email    = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
 
@@ -1290,7 +1313,7 @@
     const { error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender } },
+      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender, terms_accepted: true, terms_version: TERMS_VERSION } },
     });
     if (error) {
       document.getElementById('authError').textContent = error.message;
@@ -1394,6 +1417,13 @@
         age:                  meta.age         || null,
         gender:               meta.gender      || null,
       });
+      // Save terms consent — only if accepted during signup (not present for legacy/OAuth users)
+      if (meta.terms_accepted && meta.terms_version) {
+        await db.from('user_terms_consents').insert({
+          user_id:       currentUser.id,
+          terms_version: meta.terms_version,
+        });
+      }
     }
     document.getElementById('targetInput').value = profileTarget;
   }
@@ -2625,5 +2655,26 @@
   init();
 
 </script>
+
+<!-- Terms of Service Modal -->
+<div id="termsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:16px;">
+  <div style="background:#fff; color:#222; border-radius:14px; padding:24px 22px 20px; max-width:480px; width:100%; max-height:80vh; overflow-y:auto; direction:rtl; text-align:right; font-family:inherit;">
+    <h3 style="margin:0 0 14px; font-size:1.05rem; font-weight:700;">תקנון השימוש — גרסה 2026-04-16</h3>
+    <div style="font-size:0.84rem; line-height:1.65; color:#333;">
+      <p><strong>1. כללי</strong><br>
+      אפליקציית מעקב קלוריות מיועדת לשימוש אישי בלבד לצורך מעקב אחר צריכת קלוריות ופעילות גופנית. השימוש באפליקציה מהווה הסכמה לתנאים המפורטים להלן.</p>
+      <p><strong>2. נתונים אישיים</strong><br>
+      האפליקציה שומרת כתובת דוא"ל, נתוני מזון ופעילות גופנית, ופרטים אישיים אופציונליים (גיל, גובה, משקל). הנתונים מאוחסנים בשרתי Supabase ומאובטחים. אין שיתוף עם צד שלישי.</p>
+      <p><strong>3. מגבלות שימוש</strong><br>
+      האפליקציה אינה תחליף לייעוץ רפואי. המפתח אינו אחראי לכל נזק הנובע משימוש בנתונים המוצגים.</p>
+      <p><strong>4. מחיקת חשבון</strong><br>
+      ניתן למחוק את החשבון וכל הנתונים דרך הגדרות האפליקציה. המחיקה היא מיידית ובלתי הפיכה.</p>
+      <p><strong>5. יצירת קשר</strong><br>
+      לשאלות: arikserg1965@gmail.com</p>
+    </div>
+    <button onclick="closeTermsModal()" style="margin-top:14px; padding:9px 24px; background:#4a7fd4; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600;">סגור</button>
+  </div>
+</div>
+
 </body>
 </html>
