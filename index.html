@@ -105,7 +105,7 @@
     .auth-divider::before { left: 0; } .auth-divider::after { right: 0; }
 
     /* Measure row (height/weight) */
-    .measure-row { display: flex; gap: 8px; direction: ltr; }
+    .measure-row { display: flex; gap: 8px; direction: rtl; }
     .measure-row input  { flex: 1; }
     .measure-row select { flex: none; width: 88px; direction: rtl; }
 
@@ -440,7 +440,7 @@
     /* ---------- Auth mode toggle ---------- */
     .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #888; }
     .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
-    .measure-row { display: flex; gap: 8px; direction: ltr; }
+    .measure-row { display: flex; gap: 8px; direction: rtl; }
     .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; text-align: left; }
     .measure-row input:focus { outline: none; border-color: #2d6a4f; }
     .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; direction: rtl; }
@@ -652,8 +652,8 @@
 
         <div id="signupFields" style="display:none; flex-direction:column; gap:13px;">
           <div class="measure-row">
-            <input type="text" id="firstNameInput" placeholder="שם" autocomplete="given-name" style="direction:rtl;" />
-            <input type="text" id="lastNameInput"  placeholder="שם משפחה" autocomplete="family-name" style="direction:rtl;" />
+            <input type="text" id="firstNameInput" placeholder="שם" autocomplete="given-name" />
+            <input type="text" id="lastNameInput"  placeholder="שם משפחה" autocomplete="family-name" />
           </div>
           <div class="measure-row">
             <input type="number" id="heightInput" placeholder="גובה" min="1" step="0.1" />
