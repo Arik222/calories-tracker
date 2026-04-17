@@ -672,13 +672,13 @@
             <option value="female">נקבה</option>
             <option value="other">אחר</option>
           </select>
+        </div>
 
-          <div style="display:flex; align-items:flex-start; gap:10px; direction:rtl; margin-top:4px;">
-            <input type="checkbox" id="termsCheckbox" style="margin-top:3px; flex-shrink:0; width:16px; height:16px; cursor:pointer;" />
-            <label for="termsCheckbox" style="font-size:0.86rem; color:rgba(255,255,255,0.85); line-height:1.5; cursor:pointer;">
-              קראתי ואני מסכים/ה ל<a href="#" onclick="showTermsModal(); return false;" style="color:white; text-decoration:underline;">תקנון השימוש</a>
-            </label>
-          </div>
+        <div id="termsRow" style="display:none; align-items:flex-start; gap:10px; direction:rtl;">
+          <input type="checkbox" id="termsCheckbox" style="margin-top:3px; flex-shrink:0; width:16px; height:16px; cursor:pointer;" />
+          <label for="termsCheckbox" style="font-size:0.86rem; color:rgba(255,255,255,0.85); line-height:1.5; cursor:pointer;">
+            קראתי ואני מסכים/ה ל<a href="#" onclick="showTermsModal(); return false;" style="color:white; text-decoration:underline;">תקנון השימוש</a>
+          </label>
         </div>
 
         <div id="authError"></div>
@@ -1277,6 +1277,7 @@
     document.getElementById('toSignin').style.display     = isSignup ? '' : 'none';
     document.getElementById('authFormTitle').textContent  = isSignup ? 'יצירת חשבון' : 'ברוך הבא';
     document.getElementById('authSubtitle').textContent   = isSignup ? 'מלא את הפרטים כדי להתחיל' : 'התחבר כדי לשמור את הנתונים שלך';
+    document.getElementById('termsRow').style.display     = isSignup ? 'flex' : 'none';
     if (!isSignup) document.getElementById('termsCheckbox').checked = false;
     clearAuthMessages();
   }
