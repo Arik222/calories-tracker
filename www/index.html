@@ -652,6 +652,10 @@
 
         <div id="signupFields" style="display:none; flex-direction:column; gap:13px;">
           <div class="measure-row">
+            <input type="text" id="firstNameInput" placeholder="שם" autocomplete="given-name" style="direction:rtl;" />
+            <input type="text" id="lastNameInput"  placeholder="שם משפחה" autocomplete="family-name" style="direction:rtl;" />
+          </div>
+          <div class="measure-row">
             <input type="number" id="heightInput" placeholder="גובה" min="1" step="0.1" />
             <select id="heightUnit">
               <option value="cm">ס"מ</option>
@@ -1301,6 +1305,8 @@
     const email    = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
 
+    const firstName  = document.getElementById('firstNameInput').value.trim() || null;
+    const lastName   = document.getElementById('lastNameInput').value.trim()  || null;
     const heightVal  = parseFloat(document.getElementById('heightInput').value) || null;
     const heightUnit = document.getElementById('heightUnit').value;
     const weightVal  = parseFloat(document.getElementById('weightInput').value) || null;
@@ -1314,7 +1320,7 @@
     const { error } = await db.auth.signUp({
       email,
       password,
-      options: { data: { height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender, terms_accepted: true, terms_version: TERMS_VERSION } },
+      options: { data: { first_name: firstName, last_name: lastName, height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender, terms_accepted: true, terms_version: TERMS_VERSION } },
     });
     if (error) {
       document.getElementById('authError').textContent = error.message;
@@ -1410,6 +1416,9 @@
       const meta = currentUser.user_metadata || {};
       await db.from('profiles').insert({
         id:                   currentUser.id,
+        email:                currentUser.email || null,
+        first_name:           meta.first_name  || null,
+        last_name:            meta.last_name   || null,
         daily_calorie_target: 2300,
         height_cm:            meta.height_cm   || null,
         weight_kg:            meta.weight_kg   || null,
