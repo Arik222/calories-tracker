@@ -678,13 +678,6 @@
           </select>
         </div>
 
-        <div id="termsRow" style="display:none; align-items:flex-start; gap:10px; direction:rtl;">
-          <input type="checkbox" id="termsCheckbox" style="margin-top:3px; flex-shrink:0; width:16px; height:16px; cursor:pointer;" />
-          <label for="termsCheckbox" style="font-size:0.86rem; color:rgba(255,255,255,0.85); line-height:1.5; cursor:pointer;">
-            קראתי ואני מסכים/ה ל<a href="#" onclick="showTermsModal(); return false;" style="color:white; text-decoration:underline;">תקנון השימוש</a>
-          </label>
-        </div>
-
         <div id="authError"></div>
         <div id="authSuccess"></div>
 
@@ -987,6 +980,7 @@
 
   let currentUser        = null;
   let activeTrackingDate = null;   // loaded from user_tracking_state
+  let pendingSignupData  = null;   // held between signUp() and agreeToTerms()
   let todayEntries       = {};     // { food_name: entry_row }
   let exerciseEntries    = {};     // { exercise_name: entry_row }
   let customFoods        = [];     // permanent custom foods from user_custom_foods table
@@ -1281,8 +1275,7 @@
     document.getElementById('toSignin').style.display     = isSignup ? '' : 'none';
     document.getElementById('authFormTitle').textContent  = isSignup ? 'יצירת חשבון' : 'ברוך הבא';
     document.getElementById('authSubtitle').textContent   = isSignup ? 'מלא את הפרטים כדי להתחיל' : 'התחבר כדי לשמור את הנתונים שלך';
-    document.getElementById('termsRow').style.display     = isSignup ? 'flex' : 'none';
-    if (!isSignup) document.getElementById('termsCheckbox').checked = false;
+    pendingSignupData = null;
     clearAuthMessages();
   }
 
@@ -1292,18 +1285,19 @@
 
   function closeTermsModal() {
     document.getElementById('termsModal').style.display = 'none';
+    pendingSignupData = null;
   }
 
-  async function signUp() {
+  function signUp() {
     clearAuthMessages();
-
-    if (!document.getElementById('termsCheckbox').checked) {
-      document.getElementById('authError').textContent = 'יש לאשר את תקנון השימוש כדי להמשיך.';
-      return;
-    }
 
     const email    = document.getElementById('emailInput').value.trim();
     const password = document.getElementById('passwordInput').value;
+
+    if (!email || !password) {
+      document.getElementById('authError').textContent = 'יש למלא אימייל וסיסמה.';
+      return;
+    }
 
     const firstName  = document.getElementById('firstNameInput').value.trim() || null;
     const lastName   = document.getElementById('lastNameInput').value.trim()  || null;
@@ -1317,16 +1311,35 @@
     const heightCm = heightVal ? (heightUnit === 'inch' ? Math.round(heightVal * 2.54 * 10) / 10 : heightVal) : null;
     const weightKg = weightVal ? (weightUnit === 'lb'   ? Math.round(weightVal * 0.453592 * 10) / 10 : weightVal) : null;
 
-    const { error } = await db.auth.signUp({
+    pendingSignupData = { email, password, firstName, lastName, heightCm, heightUnit, weightKg, weightUnit, age, gender };
+    showTermsModal();
+  }
+
+  async function agreeToTerms() {
+    if (!pendingSignupData) return;
+    const { email, password, firstName, lastName, heightCm, heightUnit, weightKg, weightUnit, age, gender } = pendingSignupData;
+    pendingSignupData = null;
+    closeTermsModal();
+
+    const { data, error } = await db.auth.signUp({
       email,
       password,
       options: { data: { first_name: firstName, last_name: lastName, height_cm: heightCm, weight_kg: weightKg, height_unit: heightUnit, weight_unit: weightUnit, age, gender, terms_accepted: true, terms_version: TERMS_VERSION } },
     });
+
     if (error) {
       document.getElementById('authError').textContent = error.message;
-    } else {
-      document.getElementById('authSuccess').textContent = 'נשלח מייל אישור — אשר ואז התחבר.';
+      return;
     }
+
+    // If the Supabase project has email confirmation disabled, signUp returns a
+    // live session and onAuthStateChange fires immediately. Sign out to force the
+    // email confirmation step before the user can access the app.
+    if (data.session) {
+      await db.auth.signOut();
+    }
+
+    document.getElementById('authSuccess').textContent = 'נשלח מייל אישור — אשר ואז התחבר.';
   }
 
   async function signIn() {
@@ -2769,7 +2782,10 @@
       20.1. ניתן ליצור קשר באמצעים שיפורטו באפליקציה.</p>
 
     </div>
-    <button onclick="closeTermsModal()" style="margin-top:14px; padding:9px 24px; background:#4a7fd4; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.9rem; font-weight:600;">סגור</button>
+    <div style="display:flex; gap:12px; margin-top:18px; justify-content:flex-start;">
+      <button onclick="agreeToTerms()" style="padding:10px 28px; background:#2d6a4f; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:700;">מסכים/ה</button>
+      <button onclick="closeTermsModal()" style="padding:10px 22px; background:#e53935; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600;">לא מסכים/ה</button>
+    </div>
   </div>
 </div>
 
