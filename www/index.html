@@ -1332,15 +1332,6 @@
       return;
     }
 
-    // Record consent immediately via SECURITY DEFINER RPC — works before email
-    // confirmation because no active session is required.
-    if (data.user) {
-      await db.rpc('record_signup_consent', {
-        p_user_id:      data.user.id,
-        p_terms_version: TERMS_VERSION,
-      });
-    }
-
     // If the Supabase project has email confirmation disabled, signUp returns a
     // live session and onAuthStateChange fires immediately. Sign out to force the
     // email confirmation step before the user can access the app.
@@ -1449,6 +1440,15 @@
         age:                  meta.age         || null,
         gender:               meta.gender      || null,
       });
+      // Insert consent record — auth.uid() is guaranteed here (authenticated session).
+      // terms_accepted + terms_version were set in user metadata at signup.
+      // ON CONFLICT DO NOTHING guards against duplicate runs.
+      if (meta.terms_accepted && meta.terms_version) {
+        await db.from('user_terms_consents').insert({
+          user_id:       currentUser.id,
+          terms_version: meta.terms_version,
+        });
+      }
     }
     document.getElementById('targetInput').value = profileTarget;
   }
