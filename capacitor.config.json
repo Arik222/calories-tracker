@@ -1,0 +1,8 @@
+{
+  "appId": "com.arik.calories.tracker",
+  "appName": "Calories Tracker",
+  "webDir": "www",
+  "server": {
+    "url": "https://calories-tracker-kappa.vercel.app"
+  }
+}

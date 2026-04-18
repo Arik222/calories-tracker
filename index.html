@@ -1328,7 +1328,18 @@
     });
 
     if (error) {
-      document.getElementById('authError').textContent = error.message;
+      const alreadyExists = error.message?.toLowerCase().includes('already registered')
+        || error.message?.toLowerCase().includes('already exists');
+      document.getElementById('authError').textContent = alreadyExists
+        ? 'כתובת המייל כבר רשומה — נסה להתחבר.'
+        : error.message;
+      return;
+    }
+
+    // Supabase returns no error but empty identities when email confirmation is ON
+    // and the email already exists — it silently swallows the duplicate.
+    if (data.user?.identities?.length === 0) {
+      document.getElementById('authError').textContent = 'כתובת המייל כבר רשומה — נסה להתחבר.';
       return;
     }
 
@@ -2632,12 +2643,51 @@
   }
 
   // ─── App init ─────────────────────────────────────────────────
+  async function checkConsentGate() {
+    const { data, error } = await db
+      .from('user_terms_consents')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('terms_version', TERMS_VERSION)
+      .maybeSingle();
+
+    if (!error && data) return true;
+
+    // Populate gate text from termsModal and show
+    const srcText = document.querySelector('#termsModal > div > div[style*="font-size:0.83rem"]');
+    const gateText = document.querySelector('#consentGateModal .consent-gate-text');
+    if (srcText && gateText) gateText.innerHTML = srcText.innerHTML;
+    document.getElementById('consentGateModal').style.display = 'flex';
+    return false;
+  }
+
+  async function agreeToConsentGate() {
+    const { error } = await db
+      .from('user_terms_consents')
+      .insert({ user_id: currentUser.id, terms_version: TERMS_VERSION });
+
+    if (error && error.code !== '23505') {
+      console.error('Consent insert failed:', error);
+      return;
+    }
+
+    document.getElementById('consentGateModal').style.display = 'none';
+    showApp();
+  }
+
+  async function disagreeToConsentGate() {
+    document.getElementById('consentGateModal').style.display = 'none';
+    await db.auth.signOut();
+  }
+
   async function loadAndShowApp() {
     await loadProfile();
     await loadTrackingState();
     await Promise.all([loadCustomFoods(), loadFoodVisibility(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
+    const hasConsent = await checkConsentGate();
+    if (!hasConsent) return;
     showApp();
   }
 
@@ -2680,6 +2730,19 @@
   init();
 
 </script>
+
+<!-- Consent Gate Modal (blocks app access until consent confirmed) -->
+<div id="consentGateModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; padding:16px;">
+  <div dir="rtl" style="background:#fff; color:#222; border-radius:14px; padding:24px 22px 20px; max-width:500px; width:100%; max-height:82vh; overflow-y:auto; direction:rtl; text-align:right; font-family:inherit;">
+    <h3 style="margin:0 0 4px; font-size:1.05rem; font-weight:700;">תקנון שימוש – אפליקציית Calorie Tracker</h3>
+    <p style="margin:0 0 14px; font-size:0.78rem; color:#888;">גרסה: 2026-04-16 | עודכן: אפריל 2026</p>
+    <div class="consent-gate-text" style="font-size:0.83rem; line-height:1.7; color:#333;"></div>
+    <div style="display:flex; gap:12px; margin-top:18px; justify-content:flex-start;">
+      <button onclick="agreeToConsentGate()" style="padding:10px 28px; background:#2d6a4f; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:700;">מסכים/ה</button>
+      <button onclick="disagreeToConsentGate()" style="padding:10px 22px; background:#e53935; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600;">לא מסכים/ה</button>
+    </div>
+  </div>
+</div>
 
 <!-- Terms of Service Modal -->
 <div id="termsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:16px;">
