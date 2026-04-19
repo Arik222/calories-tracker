@@ -21,7 +21,8 @@
     }
 
     /* ---------- Auth screen — redesigned ---------- */
-    #authScreen { min-height: 100vh; display: flex; padding: 0; }
+    #authScreen { height: 100vh; display: flex; padding: 0; }
+    .auth-panel-right { overflow-y: auto; }
 
     /* Left branding panel */
     .auth-panel-left {
@@ -986,8 +987,9 @@
   let targetSaveTimer    = null;
   let profileTarget      = 2300;   // global default from profiles table
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
-  let categoryStateCache = {};     // { [category_name]: is_collapsed } — loaded from user_category_state table
-  let suppressCatSave    = false;  // true during programmatic open/close (search) to avoid overwriting user state
+  let categoryStateCache   = {};   // { [category_name]: is_collapsed } — loaded from user_category_state table
+  let suppressCatSave      = false;
+  let searchSnapshotState  = null; // snapshot of categoryStateCache captured when search begins; null when search inactive
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
   let confirmDeleteResolve = null;  // resolves the delete confirmation modal
@@ -1853,23 +1855,39 @@
 
   // ─── Search ───────────────────────────────────────────────────
   function filterFoodList() {
-    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const query        = document.getElementById('searchInput').value.trim().toLowerCase();
+    const wasSearching = searchSnapshotState !== null;
+    const isSearching  = query.length > 0;
+
+    // Snapshot user state once when search begins (empty → non-empty)
+    if (isSearching && !wasSearching) {
+      searchSnapshotState = { ...categoryStateCache };
+    }
+
     getAllRows().forEach(row => {
       const name = (row._name || '').toLowerCase();
       row.style.display = (!query || name.includes(query)) ? '' : 'none';
     });
-    // Show/hide category groups and auto-open those with matches.
-    // suppressCatSave prevents these programmatic open/close changes from
-    // overwriting the user's saved accordion state in the DB.
+
     suppressCatSave = true;
     document.querySelectorAll('details.cat-group').forEach(details => {
       const hasVisible = Array.from(details.querySelectorAll('.food-item'))
         .some(r => r.style.display !== 'none');
       details.style.display = (hasVisible || !query) ? '' : 'none';
-      if (query && hasVisible) details.open = true;
-      if (!query) details.open = getCatState(details.dataset.cat);
+      if (isSearching && hasVisible) details.open = true;
+      if (!isSearching) {
+        // Restore from snapshot (not from live cache which may have been corrupted by async toggle events)
+        const snap = searchSnapshotState || categoryStateCache;
+        const isCollapsed = snap[details.dataset.cat];
+        details.open = isCollapsed === undefined ? true : !isCollapsed;
+      }
     });
     suppressCatSave = false;
+
+    // Clear snapshot when search is done
+    if (!isSearching && wasSearching) {
+      searchSnapshotState = null;
+    }
   }
 
   // ─── Delete a single item from the active day ─────────────────
@@ -2140,7 +2158,10 @@
     summary.textContent = catName;
     summary.appendChild(countEl);
     details.appendChild(summary);
-    details.addEventListener('toggle', () => setCatState(catName, details.open));
+    details.addEventListener('toggle', () => {
+      if (searchSnapshotState !== null) return; // search active — ignore programmatic toggle events
+      setCatState(catName, details.open);
+    });
     return { details, countEl };
   }
 
