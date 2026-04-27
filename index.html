@@ -421,7 +421,7 @@
       border-radius: 12px; padding: 10px 8px; text-align: center;
     }
     .gs-label { font-size: 0.68rem; color: #999; font-weight: 600; margin-bottom: 3px; line-height: 1.3; }
-    .gs-value { font-size: 1.05rem; font-weight: 800; color: #1b4332; }
+    .gs-value { font-size: 1.05rem; font-weight: 800; color: #1b4332; direction: ltr; }
     .gs-value.neg { color: #e53935; }
 
     /* ---------- Exercise section ---------- */
@@ -718,7 +718,7 @@
     </div>
     <div class="target-row">
       <label>מאזן קלורי:</label>
-      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;">2300</span>
+      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;direction:ltr;">2300</span>
     </div>
   </header>
 
@@ -2546,7 +2546,7 @@
       const pool   = MESSAGES[g][result];
       const msg    = pool[Math.floor(Math.random() * pool.length)];
       const btnTxt = balance >= 0 ? 'תודה!' : 'הבנתי';
-      document.getElementById('motivationBalance').textContent = 'מאזן קלורי יומי: ' + balance;
+      document.getElementById('motivationBalance').innerHTML = 'מאזן קלורי יומי: <span dir="ltr">' + balance + '</span>';
       document.getElementById('motivationText').textContent    = msg;
       document.getElementById('motivationBtn').textContent     = btnTxt;
       document.getElementById('motivationModal').style.display = 'block';
