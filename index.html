@@ -2628,6 +2628,7 @@
         plugins: {
           legend: { display: false },
           tooltip: {
+            rtl: true,
             backgroundColor: 'rgba(27,67,50,0.92)',
             titleColor: 'rgba(255,255,255,0.65)',
             bodyColor: 'white',
@@ -2639,7 +2640,7 @@
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
-                const tooltipStr = `מאזן: \u202A${v > 0 ? '+' : ''}${v} קל׳\u202C`;
+                const tooltipStr = `מאזן: ${v > 0 ? '+' : ''}${v} קל׳`;
                 console.log('TOOLTIP STRING:', JSON.stringify(tooltipStr));
                 return tooltipStr;
               },
