@@ -2639,7 +2639,9 @@
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
-                return `מאזן: \u202A${v > 0 ? '+' : ''}${v} קל׳\u202C`;
+                const tooltipStr = `מאזן: \u202A${v > 0 ? '+' : ''}${v} קל׳\u202C`;
+                console.log('TOOLTIP STRING:', JSON.stringify(tooltipStr));
+                return tooltipStr;
               },
             },
           },
