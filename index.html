@@ -775,11 +775,11 @@
         </div>
         <div class="graph-stat-card">
           <div class="gs-label">מאזן קלורי ממוצע</div>
-          <div class="gs-value" id="gsAvg" dir="ltr">—</div>
+          <div class="gs-value" id="gsAvg"><span class="gs-unit">קל׳</span> <span id="gsAvgNum">—</span></div>
         </div>
         <div class="graph-stat-card">
           <div class="gs-label">השיא היומי</div>
-          <div class="gs-value" id="gsBest" dir="ltr">—</div>
+          <div class="gs-value" id="gsBest"><span class="gs-unit">קל׳</span> <span id="gsBestNum">—</span></div>
         </div>
       </div>
       <section>
@@ -2592,9 +2592,9 @@
     const best = Math.max(...rows.map(r => r.balance));
     document.getElementById('gsTotal').textContent = rows.length;
     const avgEl = document.getElementById('gsAvg');
-    avgEl.textContent = (avg >= 0 ? '+' : '') + avg + ' קל׳';
+    document.getElementById('gsAvgNum').textContent = (avg >= 0 ? '+' : '') + avg;
     avgEl.className = 'gs-value' + (avg < 0 ? ' neg' : '');
-    document.getElementById('gsBest').textContent = '+' + best + ' קל׳';
+    document.getElementById('gsBestNum').textContent = '+' + best;
     statsRow.style.display = 'flex';
 
     canvas.style.display = '';
