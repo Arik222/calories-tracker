@@ -2592,9 +2592,9 @@
     const best = Math.max(...rows.map(r => r.balance));
     document.getElementById('gsTotal').textContent = rows.length;
     const avgEl = document.getElementById('gsAvg');
-    avgEl.innerHTML = '<span dir="ltr">' + (avg >= 0 ? '+' : '') + avg + ' קל׳</span>';
+    avgEl.innerHTML = '<span dir="ltr">' + (avg >= 0 ? '+' : '') + avg + '</span> קל׳';
     avgEl.className = 'gs-value' + (avg < 0 ? ' neg' : '');
-    document.getElementById('gsBest').innerHTML = '<span dir="ltr">+' + best + ' קל׳</span>';
+    document.getElementById('gsBest').innerHTML = '<span dir="ltr">+' + best + '</span> קל׳';
     statsRow.style.display = 'flex';
 
     canvas.style.display = '';
@@ -2639,7 +2639,7 @@
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
-                return `מאזן: \u200E${v > 0 ? '+' : ''}${v} קל׳`;
+                return `מאזן: ${v > 0 ? '+' : ''}${v} קל׳`;
               },
             },
           },
