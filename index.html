@@ -2640,9 +2640,8 @@
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
-                const tooltipStr = `מאזן: ${v > 0 ? '+' : ''}${v} קל׳`;
-                console.log('TOOLTIP STRING:', JSON.stringify(tooltipStr));
-                return tooltipStr;
+                const sign = v > 0 ? '+' : '';
+                return `מאזן: ‪${sign}${v}‬ קל׳`;
               },
             },
           },
