@@ -2592,9 +2592,9 @@
     const best = Math.max(...rows.map(r => r.balance));
     document.getElementById('gsTotal').textContent = rows.length;
     const avgEl = document.getElementById('gsAvg');
-    avgEl.textContent = (avg >= 0 ? '+' : '') + avg + ' קל׳';
+    avgEl.textContent = '‎' + (avg >= 0 ? '+' : '') + avg + ' קל׳';
     avgEl.className = 'gs-value' + (avg < 0 ? ' neg' : '');
-    document.getElementById('gsBest').textContent  = '+' + best + ' קל׳';
+    document.getElementById('gsBest').textContent  = '‎+' + best + ' קל׳';
     statsRow.style.display = 'flex';
 
     canvas.style.display = '';
