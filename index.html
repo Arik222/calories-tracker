@@ -1426,6 +1426,10 @@
   // ─── Profile (calorie target) ─────────────────────────────────
   let currentProfile = {};
 
+  function touchLastLogin()    { db.from('profiles').update({ last_login_at:    new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_login_at', r.error || 'ok')); }
+  function touchLastAppOpen()  { db.from('profiles').update({ last_app_open_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_app_open_at', r.error || 'ok')); }
+  function touchLastActivity() { db.from('profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_activity_at', r.error || 'ok')); }
+
   async function loadProfile() {
     const { data } = await db
       .from('profiles')
@@ -1769,6 +1773,8 @@
     if (document.getElementById('graphsView').style.display !== 'none') {
       loadAndRenderGraphs();
     }
+
+    touchLastActivity();
   }
 
   // "שמור" button
@@ -2705,6 +2711,7 @@
 
   async function loadAndShowApp() {
     await loadProfile();
+    touchLastAppOpen();
     await loadTrackingState();
     await Promise.all([loadCustomFoods(), loadFoodVisibility(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
@@ -2738,6 +2745,7 @@
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session && !currentUser) {
         currentUser = session.user;
+        touchLastLogin();
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
