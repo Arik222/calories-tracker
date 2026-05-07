@@ -1426,9 +1426,9 @@
   // ─── Profile (calorie target) ─────────────────────────────────
   let currentProfile = {};
 
-  function touchLastLogin()    { db.from('profiles').update({ last_login_at:    new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_login_at', r.error || 'ok')); }
-  function touchLastAppOpen()  { db.from('profiles').update({ last_app_open_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_app_open_at', r.error || 'ok')); }
-  function touchLastActivity() { db.from('profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_activity_at', r.error || 'ok')); }
+  function touchLastLogin()    { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_login_at:    new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_login_at', r.error || 'ok')); }
+  function touchLastAppOpen()  { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_app_open_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_app_open_at', r.error || 'ok')); }
+  function touchLastActivity() { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_activity_at', r.error || 'ok')); }
 
   async function loadProfile() {
     const { data } = await db
