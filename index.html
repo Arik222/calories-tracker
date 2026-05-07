@@ -2687,7 +2687,7 @@
     // Populate gate text from termsModal and show
     const srcText = document.querySelector('#termsModal > div > div[style*="font-size:0.83rem"]');
     const gateText = document.querySelector('#consentGateModal .consent-gate-text');
-    if (srcText && gateText) gateText.innerHTML = srcText.innerHTML;
+    if (srcText && gateText) gateText.replaceChildren(...Array.from(srcText.cloneNode(true).childNodes));
     document.getElementById('consentGateModal').style.display = 'flex';
     return false;
   }
