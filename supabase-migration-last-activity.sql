@@ -6,4 +6,4 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS last_app_open_at    timestamptz,
   ADD COLUMN IF NOT EXISTS last_activity_at    timestamptz,
   ADD COLUMN IF NOT EXISTS signup_started_at   timestamptz,
-  ADD COLUMN IF NOT EXISTS signup_completed_at timestamptz;
+  ADD COLUMN IF NOT EXISTS signup_activated_at timestamptz;
