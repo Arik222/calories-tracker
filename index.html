@@ -1455,6 +1455,8 @@
         weight_unit:          meta.weight_unit || 'kg',
         age:                  meta.age         || null,
         gender:               meta.gender      || null,
+        signup_started_at:    currentUser.created_at || null,
+        signup_completed_at:  new Date().toISOString(),
       });
       // Insert consent record — auth.uid() is guaranteed here (authenticated session).
       // terms_accepted + terms_version were set in user metadata at signup.
