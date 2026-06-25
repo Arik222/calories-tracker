@@ -1433,7 +1433,7 @@
   async function loadProfile() {
     const { data } = await db
       .from('profiles')
-      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender')
+      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender, milestone_100_days_shown_at')
       .eq('id', currentUser.id)
       .single();
 
@@ -1811,6 +1811,9 @@
 
     // Show motivational message, wait for user to dismiss
     await showMotivationModal(balance, currentProfile.gender);
+
+    // One-time 100-completed-days milestone alert (after motivation modal, never before)
+    await checkHundredDayMilestone();
 
     // 4. Advance the active tracking date by exactly one day
     activeTrackingDate = addOneDay(activeTrackingDate);
@@ -2565,6 +2568,25 @@
   function closeMotivationModal() {
     document.getElementById('motivationModal').style.display = 'none';
     if (motivationModalResolve) { motivationModalResolve(); motivationModalResolve = null; }
+  }
+
+  // ─── 100-day milestone (one-time, after motivation modal) ─────
+  async function checkHundredDayMilestone() {
+    if (currentProfile.milestone_100_days_shown_at) return;
+
+    const { count, error } = await db
+      .from('daily_summaries')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id)
+      .eq('status', 'completed');
+
+    if (error || count !== 100) return;
+
+    alert('רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.');
+
+    const now = new Date().toISOString();
+    currentProfile.milestone_100_days_shown_at = now;
+    await db.from('profiles').update({ milestone_100_days_shown_at: now }).eq('id', currentUser.id);
   }
 
   // ─── Graphs ───────────────────────────────────────────────────
