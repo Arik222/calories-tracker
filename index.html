@@ -2624,7 +2624,9 @@
       .eq('user_id', currentUser.id)
       .eq('status', 'completed');
 
-    if (error || count !== 100) return;
+    console.log('[milestone] completed count:', count, error || 'ok');
+
+    if (error || count < 100) return;
 
     await showMilestoneModal();
 
