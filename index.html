@@ -464,6 +464,25 @@
     }
     .btn-motivation:active { background: #1b4332; }
 
+    /* ---------- Milestone modal (purple) ---------- */
+    .milestone-card {
+      background: white; border-radius: 16px;
+      padding: 32px 28px; width: 100%; max-width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column; gap: 20px;
+      direction: rtl; text-align: right;
+      border: 2px solid #7b2ff7;
+    }
+    .milestone-card p {
+      font-size: 1.15rem; line-height: 1.7; color: #5b1aa8; margin: 0; font-weight: 700;
+    }
+    .btn-milestone {
+      background: #7b2ff7; color: white; border: none; border-radius: 10px;
+      padding: 13px; font-size: 1rem; cursor: pointer; font-weight: 700;
+      align-self: stretch;
+    }
+    .btn-milestone:active { background: #5b1aa8; }
+
     /* ---------- Settings tab ---------- */
     .settings-personal {
       border: 1px solid #d4edda; border-radius: 12px; padding: 20px;
@@ -877,6 +896,16 @@
         <p id="motivationBalance" style="font-size:0.85rem; color:#888; margin-bottom:8px; text-align:right; direction:rtl;"></p>
         <p id="motivationText" style="direction:rtl; text-align:right;"></p>
         <button id="motivationBtn" class="btn-motivation" onclick="closeMotivationModal()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 100-day milestone modal -->
+  <div id="milestoneModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="milestone-card">
+        <p id="milestoneText" style="direction:rtl; text-align:right;"></p>
+        <button class="btn-milestone" onclick="closeMilestoneModal()">תודה!</button>
       </div>
     </div>
   </div>
@@ -2571,6 +2600,21 @@
   }
 
   // ─── 100-day milestone (one-time, after motivation modal) ─────
+  let milestoneModalResolve = null;
+
+  function showMilestoneModal() {
+    return new Promise(resolve => {
+      milestoneModalResolve = resolve;
+      document.getElementById('milestoneText').textContent = 'רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.';
+      document.getElementById('milestoneModal').style.display = 'block';
+    });
+  }
+
+  function closeMilestoneModal() {
+    document.getElementById('milestoneModal').style.display = 'none';
+    if (milestoneModalResolve) { milestoneModalResolve(); milestoneModalResolve = null; }
+  }
+
   async function checkHundredDayMilestone() {
     if (currentProfile.milestone_100_days_shown_at) return;
 
@@ -2582,7 +2626,7 @@
 
     if (error || count !== 100) return;
 
-    alert('רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.');
+    await showMilestoneModal();
 
     const now = new Date().toISOString();
     currentProfile.milestone_100_days_shown_at = now;
