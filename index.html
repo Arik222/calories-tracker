@@ -1462,7 +1462,7 @@
   async function loadProfile() {
     const { data } = await db
       .from('profiles')
-      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender, milestone_100_days_shown_at')
+      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender, milestone_100_days_shown_at, milestone_cheer_shown_at')
       .eq('id', currentUser.id)
       .single();
 
@@ -2602,10 +2602,10 @@
   // ─── 100-day milestone (one-time, after motivation modal) ─────
   let milestoneModalResolve = null;
 
-  function showMilestoneModal() {
+  function showMilestoneModal(text) {
     return new Promise(resolve => {
       milestoneModalResolve = resolve;
-      document.getElementById('milestoneText').textContent = 'רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.';
+      document.getElementById('milestoneText').textContent = text;
       document.getElementById('milestoneModal').style.display = 'block';
     });
   }
@@ -2628,11 +2628,22 @@
 
     if (error || count < 100) return;
 
-    await showMilestoneModal();
+    await showMilestoneModal('רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.');
 
     const now = new Date().toISOString();
     currentProfile.milestone_100_days_shown_at = now;
     await db.from('profiles').update({ milestone_100_days_shown_at: now }).eq('id', currentUser.id);
+  }
+
+  // ─── General cheer milestone (one-time, on app open) ──────────
+  async function checkCheerMilestone() {
+    if (currentProfile.milestone_cheer_shown_at) return;
+
+    await showMilestoneModal('מטורף שהגעת עד לכאן, רואים תוצאותתת יאללה כל הכבוד ממשיכים');
+
+    const now = new Date().toISOString();
+    currentProfile.milestone_cheer_shown_at = now;
+    await db.from('profiles').update({ milestone_cheer_shown_at: now }).eq('id', currentUser.id);
   }
 
   // ─── Graphs ───────────────────────────────────────────────────
@@ -2789,6 +2800,7 @@
     const hasConsent = await checkConsentGate();
     if (!hasConsent) return;
     showApp();
+    await checkCheerMilestone();
   }
 
   // Scroll focused inputs into view on mobile (prevents keyboard hiding input)
