@@ -2798,7 +2798,6 @@
     const hasConsent = await checkConsentGate();
     if (!hasConsent) return;
     showApp();
-    await checkCheerMilestone();
   }
 
   // Scroll focused inputs into view on mobile (prevents keyboard hiding input)
