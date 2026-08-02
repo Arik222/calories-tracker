@@ -822,7 +822,7 @@
           </div>
         </div>
         <div id="rangeSummary" dir="ltr" style="display:none; flex-direction:row; align-items:center; justify-content:center; gap:5px; margin-top:18px; font-family:Heebo,sans-serif; font-size:1.05rem; color:#444;">
-          <span id="rangeSummaryLabel"></span><span>=</span><span id="rangeSummaryUnit">קל׳</span><span id="rangeSummarySign"></span><span id="rangeSummaryNumber"></span><span>=</span><span id="rangeSummaryKgUnit">קילוגרם</span><span id="rangeSummaryKgSign"></span><span id="rangeSummaryKgNumber"></span>
+          <span id="rangeSummaryLabel"></span><span>=</span><span id="rangeSummaryUnit">קל׳</span><span id="rangeSummarySign"></span><span id="rangeSummaryNumber"></span><span>=</span><span id="rangeSummaryKgUnit">קילוגרם</span><span id="rangeSummaryKgNumber"></span>
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
@@ -2736,9 +2736,7 @@
     const kgVal = parseFloat((Math.abs(rangeTotal) / 7700).toFixed(2));
     document.getElementById('rangeSummaryKgUnit').style.color = valueColor;
     document.getElementById('rangeSummaryKgUnit').style.fontWeight = '700';
-    document.getElementById('rangeSummaryKgSign').textContent = rangeTotal >= 0 ? '+' : '-';
-    document.getElementById('rangeSummaryKgSign').style.color = valueColor;
-    document.getElementById('rangeSummaryKgSign').style.fontWeight = '700';
+
     document.getElementById('rangeSummaryKgNumber').textContent = kgVal;
     document.getElementById('rangeSummaryKgNumber').style.color = valueColor;
     document.getElementById('rangeSummaryKgNumber').style.fontWeight = '700';
