@@ -821,8 +821,8 @@
             <canvas id="balanceChart"></canvas>
           </div>
         </div>
-        <div id="rangeSummary" dir="ltr" style="display:none; text-align:center; margin-top:18px; font-family:Heebo,sans-serif; font-size:1.05rem; color:#444;">
-          <span id="rangeSummaryLabel"></span> = <span id="rangeSummaryValue"></span>
+        <div id="rangeSummary" style="display:none; flex-direction:row; align-items:center; justify-content:center; gap:5px; margin-top:18px; font-family:Heebo,sans-serif; font-size:1.05rem; color:#444;">
+          <span id="rangeSummaryLabel"></span><span>=</span><span id="rangeSummaryValue"></span>
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
@@ -2727,7 +2727,7 @@
     document.getElementById('rangeSummaryValue').textContent = 'קל׳ ' + (rangeTotal >= 0 ? '+' : '') + rangeTotal;
     document.getElementById('rangeSummaryValue').style.color = rangeTotal >= 0 ? '#2d6a4f' : '#e53935';
     document.getElementById('rangeSummaryValue').style.fontWeight = '700';
-    rangeSummary.style.display = '';
+    rangeSummary.style.display = 'flex';
 
     const container = document.getElementById('chartContainer');
     const inner = document.getElementById('chartInner');
