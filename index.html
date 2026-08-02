@@ -2724,7 +2724,7 @@
     const rangeLabelMap = { '7': 'מאזן שבועי', '30': 'מאזן חודשי', 'all': 'מאזן כולל' };
     const rangeSummary = document.getElementById('rangeSummary');
     document.getElementById('rangeSummaryLabel').textContent = rangeLabelMap[graphRange];
-    document.getElementById('rangeSummaryValue').textContent = 'קל׳ ' + (rangeTotal >= 0 ? '+' : '') + rangeTotal;
+    document.getElementById('rangeSummaryValue').textContent = (rangeTotal >= 0 ? '+' : '-') + ' קל׳ ' + Math.abs(rangeTotal);
     document.getElementById('rangeSummaryValue').style.color = rangeTotal >= 0 ? '#2d6a4f' : '#e53935';
     document.getElementById('rangeSummaryValue').style.fontWeight = '700';
     rangeSummary.style.display = 'flex';
