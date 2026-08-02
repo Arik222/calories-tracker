@@ -416,6 +416,13 @@
     /* ---------- Graph screen ---------- */
     .chart-container { position: relative; height: 360px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     #chartInner { height: 100%; min-width: 100%; }
+    .graph-range-btns { display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; }
+    .graph-range-btn {
+      padding: 6px 18px; border-radius: 20px; border: 1.5px solid #2d6a4f;
+      background: white; color: #2d6a4f; font-family: Heebo, sans-serif;
+      font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: background 0.15s, color 0.15s;
+    }
+    .graph-range-btn.active { background: #2d6a4f; color: white; }
     .graph-stats { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
     .graph-stat-card {
       flex: 1; min-width: 80px; background: #f8fdf9; border: 1px solid #e0f0e5;
@@ -804,6 +811,11 @@
       </div>
       <section>
         <h2 class="centered">📈 מאזן קלורי לאורך זמן</h2>
+        <div class="graph-range-btns">
+          <button class="graph-range-btn" data-range="7">שבוע</button>
+          <button class="graph-range-btn active" data-range="30">חודש</button>
+          <button class="graph-range-btn" data-range="all">הכל</button>
+        </div>
         <div class="chart-container" id="chartContainer">
           <div id="chartInner">
             <canvas id="balanceChart"></canvas>
@@ -2649,6 +2661,16 @@
 
   // ─── Graphs ───────────────────────────────────────────────────
   let balanceChartInstance = null;
+  let graphRange = '30';
+
+  document.querySelectorAll('.graph-range-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.graph-range-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      graphRange = btn.dataset.range;
+      loadAndRenderGraphs();
+    });
+  });
 
   async function loadAndRenderGraphs() {
     const canvas   = document.getElementById('balanceChart');
@@ -2688,14 +2710,18 @@
     canvas.style.display = '';
     if (balanceChartInstance) { balanceChartInstance.destroy(); balanceChartInstance = null; }
 
-    const labels = rows.map(d => formatDateHebrew(d.date));
-    const values = rows.map(d => d.balance);
+    const visibleRows = graphRange === 'all' ? rows
+      : rows.slice(-parseInt(graphRange, 10));
+
+    const labels = visibleRows.map(d => formatDateHebrew(d.date));
+    const values = visibleRows.map(d => d.balance);
 
     const container = document.getElementById('chartContainer');
     const inner = document.getElementById('chartInner');
     const PX_PER_POINT = 28;
     const minWidth = container.clientWidth || window.innerWidth;
-    inner.style.width = Math.max(minWidth, rows.length * PX_PER_POINT) + 'px';
+    const isAll = graphRange === 'all';
+    inner.style.width = isAll ? Math.max(minWidth, visibleRows.length * PX_PER_POINT) + 'px' : '100%';
 
     balanceChartInstance = new Chart(canvas.getContext('2d'), {
       type: 'line',
@@ -2718,7 +2744,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { onComplete: () => { container.scrollLeft = container.scrollWidth; } },
+        animation: { onComplete: () => { if (isAll) container.scrollLeft = container.scrollWidth; } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
