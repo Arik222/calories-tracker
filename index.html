@@ -1841,8 +1841,6 @@
     // Show motivational message, wait for user to dismiss
     await showMotivationModal(balance, currentProfile.gender);
 
-    // One-time 100-completed-days milestone alert (after motivation modal, never before)
-    await checkHundredDayMilestone();
 
     // 4. Advance the active tracking date by exactly one day
     activeTrackingDate = addOneDay(activeTrackingDate);
