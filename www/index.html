@@ -822,7 +822,7 @@
           </div>
         </div>
         <div id="rangeSummary" dir="ltr" style="display:none; flex-direction:row; align-items:center; justify-content:center; gap:5px; margin-top:18px; font-family:Heebo,sans-serif; font-size:1.05rem; color:#444;">
-          <span id="rangeSummaryLabel"></span><span>=</span><span id="rangeSummaryValue"></span>
+          <span id="rangeSummaryLabel"></span><span>=</span><span id="rangeSummaryUnit">קל׳</span><span id="rangeSummarySign"></span><span id="rangeSummaryNumber"></span>
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
@@ -2723,10 +2723,16 @@
     const rangeTotal = values.reduce((s, v) => s + v, 0);
     const rangeLabelMap = { '7': 'מאזן שבועי', '30': 'מאזן חודשי', 'all': 'מאזן כולל' };
     const rangeSummary = document.getElementById('rangeSummary');
+    const valueColor = rangeTotal >= 0 ? '#2d6a4f' : '#e53935';
     document.getElementById('rangeSummaryLabel').textContent = rangeLabelMap[graphRange];
-    document.getElementById('rangeSummaryValue').textContent = 'קל׳ ' + (rangeTotal >= 0 ? '+' : '-') + ' ' + Math.abs(rangeTotal);
-    document.getElementById('rangeSummaryValue').style.color = rangeTotal >= 0 ? '#2d6a4f' : '#e53935';
-    document.getElementById('rangeSummaryValue').style.fontWeight = '700';
+    document.getElementById('rangeSummaryUnit').style.color = valueColor;
+    document.getElementById('rangeSummaryUnit').style.fontWeight = '700';
+    document.getElementById('rangeSummarySign').textContent = rangeTotal >= 0 ? '+' : '-';
+    document.getElementById('rangeSummarySign').style.color = valueColor;
+    document.getElementById('rangeSummarySign').style.fontWeight = '700';
+    document.getElementById('rangeSummaryNumber').textContent = Math.abs(rangeTotal);
+    document.getElementById('rangeSummaryNumber').style.color = valueColor;
+    document.getElementById('rangeSummaryNumber').style.fontWeight = '700';
     rangeSummary.style.display = 'flex';
 
     const container = document.getElementById('chartContainer');
