@@ -414,7 +414,8 @@
     }
 
     /* ---------- Graph screen ---------- */
-    .chart-container { position: relative; height: 360px; }
+    .chart-container { position: relative; height: 360px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #chartInner { height: 100%; min-width: 100%; }
     .graph-stats { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
     .graph-stat-card {
       flex: 1; min-width: 80px; background: #f8fdf9; border: 1px solid #e0f0e5;
@@ -803,8 +804,10 @@
       </div>
       <section>
         <h2 class="centered">📈 מאזן קלורי לאורך זמן</h2>
-        <div class="chart-container">
-          <canvas id="balanceChart"></canvas>
+        <div class="chart-container" id="chartContainer">
+          <div id="chartInner">
+            <canvas id="balanceChart"></canvas>
+          </div>
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
@@ -2688,6 +2691,12 @@
     const labels = rows.map(d => formatDateHebrew(d.date));
     const values = rows.map(d => d.balance);
 
+    const container = document.getElementById('chartContainer');
+    const inner = document.getElementById('chartInner');
+    const PX_PER_POINT = 28;
+    const minWidth = container.clientWidth || window.innerWidth;
+    inner.style.width = Math.max(minWidth, rows.length * PX_PER_POINT) + 'px';
+
     balanceChartInstance = new Chart(canvas.getContext('2d'), {
       type: 'line',
       data: {
@@ -2709,6 +2718,7 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { onComplete: () => { container.scrollLeft = container.scrollWidth; } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },

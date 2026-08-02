@@ -21,7 +21,8 @@
     }
 
     /* ---------- Auth screen — redesigned ---------- */
-    #authScreen { min-height: 100vh; display: flex; padding: 0; }
+    #authScreen { height: 100vh; display: flex; padding: 0; }
+    .auth-panel-right { overflow-y: auto; }
 
     /* Left branding panel */
     .auth-panel-left {
@@ -66,8 +67,7 @@
       font-size: 0.97rem; width: 100%; background: white; font-family: inherit;
       color: #222; transition: border-color 0.18s, box-shadow 0.18s;
     }
-    .auth-form-box input[type="email"],
-    .auth-form-box input[type="password"] { direction: ltr; text-align: left; }
+    .auth-form-box input { direction: rtl; text-align: right; }
     .auth-form-box input:focus,
     .auth-form-box select:focus {
       outline: none; border-color: #2d6a4f;
@@ -414,7 +414,8 @@
     }
 
     /* ---------- Graph screen ---------- */
-    .chart-container { position: relative; height: 360px; }
+    .chart-container { position: relative; height: 360px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    #chartInner { height: 100%; min-width: 100%; }
     .graph-stats { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; }
     .graph-stat-card {
       flex: 1; min-width: 80px; background: #f8fdf9; border: 1px solid #e0f0e5;
@@ -441,7 +442,7 @@
     .auth-mode-toggle { text-align: center; font-size: 0.88rem; color: #888; }
     .auth-mode-toggle a { color: #2d6a4f; font-weight: 700; text-decoration: none; }
     .measure-row { display: flex; gap: 8px; direction: rtl; }
-    .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; text-align: left; }
+    .measure-row input  { flex: 1; padding: 12px 14px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; text-align: right; direction: rtl; }
     .measure-row input:focus { outline: none; border-color: #2d6a4f; }
     .measure-row select { padding: 12px 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 0.95rem; background: white; cursor: pointer; direction: rtl; }
     .measure-row select:focus { outline: none; border-color: #2d6a4f; }
@@ -463,6 +464,25 @@
       align-self: stretch;
     }
     .btn-motivation:active { background: #1b4332; }
+
+    /* ---------- Milestone modal (purple) ---------- */
+    .milestone-card {
+      background: white; border-radius: 16px;
+      padding: 32px 28px; width: 100%; max-width: 360px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.18);
+      display: flex; flex-direction: column; gap: 20px;
+      direction: rtl; text-align: right;
+      border: 2px solid #7b2ff7;
+    }
+    .milestone-card p {
+      font-size: 1.15rem; line-height: 1.7; color: #5b1aa8; margin: 0; font-weight: 700;
+    }
+    .btn-milestone {
+      background: #7b2ff7; color: white; border: none; border-radius: 10px;
+      padding: 13px; font-size: 1rem; cursor: pointer; font-weight: 700;
+      align-self: stretch;
+    }
+    .btn-milestone:active { background: #5b1aa8; }
 
     /* ---------- Settings tab ---------- */
     .settings-personal {
@@ -718,7 +738,7 @@
     </div>
     <div class="target-row">
       <label>מאזן קלורי:</label>
-      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;">2300</span>
+      <span id="remainingDisplay" class="remaining" style="background:white;color:#2d6a4f;font-size:1rem;font-weight:700;padding:5px 12px;border-radius:6px;min-width:60px;text-align:center;display:inline-block;direction:ltr;">2300</span>
     </div>
   </header>
 
@@ -784,8 +804,10 @@
       </div>
       <section>
         <h2 class="centered">📈 מאזן קלורי לאורך זמן</h2>
-        <div class="chart-container">
-          <canvas id="balanceChart"></canvas>
+        <div class="chart-container" id="chartContainer">
+          <div id="chartInner">
+            <canvas id="balanceChart"></canvas>
+          </div>
         </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
@@ -877,6 +899,16 @@
         <p id="motivationBalance" style="font-size:0.85rem; color:#888; margin-bottom:8px; text-align:right; direction:rtl;"></p>
         <p id="motivationText" style="direction:rtl; text-align:right;"></p>
         <button id="motivationBtn" class="btn-motivation" onclick="closeMotivationModal()"></button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 100-day milestone modal -->
+  <div id="milestoneModal" style="display:none">
+    <div class="modal-overlay">
+      <div class="milestone-card">
+        <p id="milestoneText" style="direction:rtl; text-align:right;"></p>
+        <button class="btn-milestone" onclick="closeMilestoneModal()">תודה!</button>
       </div>
     </div>
   </div>
@@ -987,8 +1019,9 @@
   let targetSaveTimer    = null;
   let profileTarget      = 2300;   // global default from profiles table
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
-  let categoryStateCache = {};     // { [category_name]: is_collapsed } — loaded from user_category_state table
-  let suppressCatSave    = false;  // true during programmatic open/close (search) to avoid overwriting user state
+  let categoryStateCache   = {};   // { [category_name]: is_collapsed } — loaded from user_category_state table
+  let suppressCatSave      = false;
+  let searchSnapshotState  = null; // snapshot of categoryStateCache captured when search begins; null when search inactive
   let modalResolve         = null;  // resolves the date-switch unsaved modal
   let finalizeModalResolve = null;  // resolves the finalize unsaved modal
   let confirmDeleteResolve = null;  // resolves the delete confirmation modal
@@ -1328,7 +1361,18 @@
     });
 
     if (error) {
-      document.getElementById('authError').textContent = error.message;
+      const alreadyExists = error.message?.toLowerCase().includes('already registered')
+        || error.message?.toLowerCase().includes('already exists');
+      document.getElementById('authError').textContent = alreadyExists
+        ? 'כתובת המייל כבר רשומה — נסה להתחבר.'
+        : error.message;
+      return;
+    }
+
+    // Supabase returns no error but empty identities when email confirmation is ON
+    // and the email already exists — it silently swallows the duplicate.
+    if (data.user?.identities?.length === 0) {
+      document.getElementById('authError').textContent = 'כתובת המייל כבר רשומה — נסה להתחבר.';
       return;
     }
 
@@ -1414,10 +1458,14 @@
   // ─── Profile (calorie target) ─────────────────────────────────
   let currentProfile = {};
 
+  function touchLastLogin()    { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_login_at:    new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_login_at', r.error || 'ok')); }
+  function touchLastAppOpen()  { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_app_open_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_app_open_at', r.error || 'ok')); }
+  function touchLastActivity() { if (!currentUser || !currentUser.id) return; db.from('profiles').update({ last_activity_at: new Date().toISOString() }).eq('id', currentUser.id).then(r => console.log('[touch] last_activity_at', r.error || 'ok')); }
+
   async function loadProfile() {
     const { data } = await db
       .from('profiles')
-      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender')
+      .select('daily_calorie_target, height_cm, weight_kg, height_unit, weight_unit, age, gender, milestone_100_days_shown_at, milestone_cheer_shown_at')
       .eq('id', currentUser.id)
       .single();
 
@@ -1439,6 +1487,8 @@
         weight_unit:          meta.weight_unit || 'kg',
         age:                  meta.age         || null,
         gender:               meta.gender      || null,
+        signup_started_at:    currentUser.created_at || null,
+        signup_activated_at:  new Date().toISOString(),
       });
       // Insert consent record — auth.uid() is guaranteed here (authenticated session).
       // terms_accepted + terms_version were set in user metadata at signup.
@@ -1757,6 +1807,8 @@
     if (document.getElementById('graphsView').style.display !== 'none') {
       loadAndRenderGraphs();
     }
+
+    touchLastActivity();
   }
 
   // "שמור" button
@@ -1791,6 +1843,7 @@
 
     // Show motivational message, wait for user to dismiss
     await showMotivationModal(balance, currentProfile.gender);
+
 
     // 4. Advance the active tracking date by exactly one day
     activeTrackingDate = addOneDay(activeTrackingDate);
@@ -1843,23 +1896,39 @@
 
   // ─── Search ───────────────────────────────────────────────────
   function filterFoodList() {
-    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const query        = document.getElementById('searchInput').value.trim().toLowerCase();
+    const wasSearching = searchSnapshotState !== null;
+    const isSearching  = query.length > 0;
+
+    // Snapshot user state once when search begins (empty → non-empty)
+    if (isSearching && !wasSearching) {
+      searchSnapshotState = { ...categoryStateCache };
+    }
+
     getAllRows().forEach(row => {
       const name = (row._name || '').toLowerCase();
       row.style.display = (!query || name.includes(query)) ? '' : 'none';
     });
-    // Show/hide category groups and auto-open those with matches.
-    // suppressCatSave prevents these programmatic open/close changes from
-    // overwriting the user's saved accordion state in the DB.
+
     suppressCatSave = true;
     document.querySelectorAll('details.cat-group').forEach(details => {
       const hasVisible = Array.from(details.querySelectorAll('.food-item'))
         .some(r => r.style.display !== 'none');
       details.style.display = (hasVisible || !query) ? '' : 'none';
-      if (query && hasVisible) details.open = true;
-      if (!query) details.open = getCatState(details.dataset.cat);
+      if (isSearching && hasVisible) details.open = true;
+      if (!isSearching) {
+        // Restore from snapshot (not from live cache which may have been corrupted by async toggle events)
+        const snap = searchSnapshotState || categoryStateCache;
+        const isCollapsed = snap[details.dataset.cat];
+        details.open = isCollapsed === undefined ? true : !isCollapsed;
+      }
     });
     suppressCatSave = false;
+
+    // Clear snapshot when search is done
+    if (!isSearching && wasSearching) {
+      searchSnapshotState = null;
+    }
   }
 
   // ─── Delete a single item from the active day ─────────────────
@@ -2130,7 +2199,10 @@
     summary.textContent = catName;
     summary.appendChild(countEl);
     details.appendChild(summary);
-    details.addEventListener('toggle', () => setCatState(catName, details.open));
+    details.addEventListener('toggle', () => {
+      if (searchSnapshotState !== null) return; // search active — ignore programmatic toggle events
+      setCatState(catName, details.open);
+    });
     return { details, countEl };
   }
 
@@ -2472,11 +2544,12 @@
       ],
       failure: [
         'היום קצת פחות הלך.. לא קרה כלום! מחר תפציצי.',
-        'מאזן קלורי חיובי היום.. קורה. תראי כמה הצלחת עד עכשיו, מחר נתאפס',
+        'מאזן קלורי שלילי היום.. קורה. תראי כמה הצלחת עד עכשיו, מחר נתאפס',
         'גם כשמנסים לעמוד ביעדים לפעמים יוצא כמעט, קמים וממשיכים הלאה, בהצלחה מחר!',
         'את אלופה גם אם היום קצת פחות הלך עם המאזן. מחר משתפרים וחוזרים לעניינים',
         'חשוב להשתדל לא לבלום התקדמות של שבועיים בנפילה של יומיים, אז מחר חוזרים לעניינים',
-        'מחר נדאג למאזן קלורי שלילי, שלא יאשימו אותי בסוף..סומך עלייך',
+        'מחר נדאג למאזן קלורי חיובי, שלא יאשימו אותי בסוף..סומך עלייך',
+        'מאזן קלורי שלילי? עשיתי לך משהו? חשבתי שאנחנו חברים. מחר את מפציצה!',
       ],
     },
     male: {
@@ -2496,10 +2569,10 @@
       ],
       failure: [
         'אז היום פחות הלך כל העניין עם המאזן.. לא נורא, מחר נתקן!',
-        'חמלה עצמית לצד פוקוס גבוה זה הסוד. מחר אתה דואג למאזן קלורי שלילי סגור אלוף?',
+        'חמלה עצמית לצד פוקוס גבוה זה הסוד. מחר אתה דואג למאזן קלורי חיובי סגור אלוף?',
         'אתה גורם לי להציג מאזן קלורי שלילי, איך אתה חושב שזה גורם לי להרגיש? יאללה לעבודה',
-        'בסוף יאשימו אותי.. האחריות היא עליך ידידי. מחר מאזן קלורי שלילי בסדר?',
-        'מאזן קלורי חיובי? עשיתי לך משהו? חשבתי שאנחנו חברים. מחר אתה מפציץ!',
+        'בסוף יאשימו אותי.. האחריות היא עליך ידידי. מחר מאזן קלורי חיובי בסדר?',
+        'מאזן קלורי שלילי? עשיתי לך משהו? חשבתי שאנחנו חברים. מחר אתה מפציץ!',
         'מאזן קלורי חיובי? בטטה.. לא אתה, כאילו אולי אכלת הרבה בטטה פשוט. בקיצור מחר חדש',
       ],
     },
@@ -2515,7 +2588,7 @@
       const pool   = MESSAGES[g][result];
       const msg    = pool[Math.floor(Math.random() * pool.length)];
       const btnTxt = balance >= 0 ? 'תודה!' : 'הבנתי';
-      document.getElementById('motivationBalance').textContent = 'מאזן קלורי יומי: ' + balance;
+      document.getElementById('motivationBalance').innerHTML = 'מאזן קלורי יומי: <span dir="ltr">' + balance + '</span>';
       document.getElementById('motivationText').textContent    = msg;
       document.getElementById('motivationBtn').textContent     = btnTxt;
       document.getElementById('motivationModal').style.display = 'block';
@@ -2525,6 +2598,53 @@
   function closeMotivationModal() {
     document.getElementById('motivationModal').style.display = 'none';
     if (motivationModalResolve) { motivationModalResolve(); motivationModalResolve = null; }
+  }
+
+  // ─── 100-day milestone (one-time, after motivation modal) ─────
+  let milestoneModalResolve = null;
+
+  function showMilestoneModal(text) {
+    return new Promise(resolve => {
+      milestoneModalResolve = resolve;
+      document.getElementById('milestoneText').textContent = text;
+      document.getElementById('milestoneModal').style.display = 'block';
+    });
+  }
+
+  function closeMilestoneModal() {
+    document.getElementById('milestoneModal').style.display = 'none';
+    if (milestoneModalResolve) { milestoneModalResolve(); milestoneModalResolve = null; }
+  }
+
+  async function checkHundredDayMilestone() {
+    if (currentProfile.milestone_100_days_shown_at) return;
+
+    const { count, error } = await db
+      .from('daily_summaries')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.id)
+      .eq('status', 'completed');
+
+    console.log('[milestone] completed count:', count, error || 'ok');
+
+    if (error || count < 100) return;
+
+    await showMilestoneModal('רגע רגע, וואו! אשכרה 100 ימים? מדהים.. כל הכבוד על התמדה אין סופית, הגוף שלך מודה לך.');
+
+    const now = new Date().toISOString();
+    currentProfile.milestone_100_days_shown_at = now;
+    await db.from('profiles').update({ milestone_100_days_shown_at: now }).eq('id', currentUser.id);
+  }
+
+  // ─── General cheer milestone (one-time, on app open) ──────────
+  async function checkCheerMilestone() {
+    if (currentProfile.milestone_cheer_shown_at) return;
+
+    await showMilestoneModal('מטורף שהגעת עד לכאן, רואים תוצאותתת יאללה כל הכבוד ממשיכים');
+
+    const now = new Date().toISOString();
+    currentProfile.milestone_cheer_shown_at = now;
+    await db.from('profiles').update({ milestone_cheer_shown_at: now }).eq('id', currentUser.id);
   }
 
   // ─── Graphs ───────────────────────────────────────────────────
@@ -2560,9 +2680,9 @@
     const best = Math.max(...rows.map(r => r.balance));
     document.getElementById('gsTotal').textContent = rows.length;
     const avgEl = document.getElementById('gsAvg');
-    avgEl.textContent = (avg >= 0 ? '+' : '') + avg + ' קל׳';
+    avgEl.innerHTML = '<span dir="ltr">' + (avg >= 0 ? '+' : '') + avg + '</span> קל׳';
     avgEl.className = 'gs-value' + (avg < 0 ? ' neg' : '');
-    document.getElementById('gsBest').textContent  = '+' + best + ' קל׳';
+    document.getElementById('gsBest').innerHTML = '<span dir="ltr">+' + best + '</span> קל׳';
     statsRow.style.display = 'flex';
 
     canvas.style.display = '';
@@ -2570,6 +2690,12 @@
 
     const labels = rows.map(d => formatDateHebrew(d.date));
     const values = rows.map(d => d.balance);
+
+    const container = document.getElementById('chartContainer');
+    const inner = document.getElementById('chartInner');
+    const PX_PER_POINT = 28;
+    const minWidth = container.clientWidth || window.innerWidth;
+    inner.style.width = Math.max(minWidth, rows.length * PX_PER_POINT) + 'px';
 
     balanceChartInstance = new Chart(canvas.getContext('2d'), {
       type: 'line',
@@ -2592,10 +2718,12 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: { onComplete: () => { container.scrollLeft = container.scrollWidth; } },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
+            rtl: true,
             backgroundColor: 'rgba(27,67,50,0.92)',
             titleColor: 'rgba(255,255,255,0.65)',
             bodyColor: 'white',
@@ -2607,7 +2735,8 @@
             callbacks: {
               label: ctx => {
                 const v = ctx.parsed.y;
-                return `מאזן: ${v > 0 ? '+' : ''}${v} קל׳`;
+                const sign = v > 0 ? '+' : '';
+                return `מאזן: ‪${sign}${v}‬ קל׳`;
               },
             },
           },
@@ -2632,12 +2761,52 @@
   }
 
   // ─── App init ─────────────────────────────────────────────────
+  async function checkConsentGate() {
+    const { data, error } = await db
+      .from('user_terms_consents')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('terms_version', TERMS_VERSION)
+      .maybeSingle();
+
+    if (!error && data) return true;
+
+    // Populate gate text from termsModal and show
+    const srcText = document.querySelector('#termsModal > div > div[style*="font-size:0.83rem"]');
+    const gateText = document.querySelector('#consentGateModal .consent-gate-text');
+    if (srcText && gateText) gateText.replaceChildren(...Array.from(srcText.cloneNode(true).childNodes));
+    document.getElementById('consentGateModal').style.display = 'flex';
+    return false;
+  }
+
+  async function agreeToConsentGate() {
+    const { error } = await db
+      .from('user_terms_consents')
+      .insert({ user_id: currentUser.id, terms_version: TERMS_VERSION });
+
+    if (error && error.code !== '23505') {
+      console.error('Consent insert failed:', error);
+      return;
+    }
+
+    document.getElementById('consentGateModal').style.display = 'none';
+    showApp();
+  }
+
+  async function disagreeToConsentGate() {
+    document.getElementById('consentGateModal').style.display = 'none';
+    await db.auth.signOut();
+  }
+
   async function loadAndShowApp() {
     await loadProfile();
+    touchLastAppOpen();
     await loadTrackingState();
     await Promise.all([loadCustomFoods(), loadFoodVisibility(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
+    const hasConsent = await checkConsentGate();
+    if (!hasConsent) return;
     showApp();
   }
 
@@ -2665,6 +2834,7 @@
     db.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session && !currentUser) {
         currentUser = session.user;
+        touchLastLogin();
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
@@ -2680,6 +2850,19 @@
   init();
 
 </script>
+
+<!-- Consent Gate Modal (blocks app access until consent confirmed) -->
+<div id="consentGateModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; padding:16px;">
+  <div dir="rtl" style="background:#fff; color:#222; border-radius:14px; padding:24px 22px 20px; max-width:500px; width:100%; max-height:82vh; overflow-y:auto; direction:rtl; text-align:right; font-family:inherit;">
+    <h3 style="margin:0 0 4px; font-size:1.05rem; font-weight:700;">תקנון שימוש – אפליקציית Calorie Tracker</h3>
+    <p style="margin:0 0 14px; font-size:0.78rem; color:#888;">גרסה: 2026-04-16 | עודכן: אפריל 2026</p>
+    <div class="consent-gate-text" style="font-size:0.83rem; line-height:1.7; color:#333;"></div>
+    <div style="display:flex; gap:12px; margin-top:18px; justify-content:flex-start;">
+      <button onclick="agreeToConsentGate()" style="padding:10px 28px; background:#2d6a4f; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:700;">מסכים/ה</button>
+      <button onclick="disagreeToConsentGate()" style="padding:10px 22px; background:#e53935; color:white; border:none; border-radius:8px; cursor:pointer; font-size:0.95rem; font-weight:600;">לא מסכים/ה</button>
+    </div>
+  </div>
+</div>
 
 <!-- Terms of Service Modal -->
 <div id="termsModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(0,0,0,0.65); align-items:center; justify-content:center; padding:16px;">
