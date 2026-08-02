@@ -821,6 +821,9 @@
             <canvas id="balanceChart"></canvas>
           </div>
         </div>
+        <div id="rangeSummary" style="display:none; text-align:center; margin-top:18px; font-family:Heebo,sans-serif; font-size:1.05rem; color:#444;">
+          <span id="rangeSummaryLabel"></span> = <span id="rangeSummaryValue" dir="ltr"></span>
+        </div>
         <div id="graphsEmptyState" style="display:none; text-align:center; color:#bbb; padding:60px 0 40px; font-size:0.95rem; line-height:2;">
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
         </div>
@@ -2680,6 +2683,7 @@
     canvas.style.display    = 'none';
     empty.style.display     = 'none';
     statsRow.style.display  = 'none';
+    document.getElementById('rangeSummary').style.display = 'none';
 
     const { data, error } = await db
       .from('daily_summaries')
@@ -2715,6 +2719,15 @@
 
     const labels = visibleRows.map(d => formatDateHebrew(d.date));
     const values = visibleRows.map(d => d.balance);
+
+    const rangeTotal = values.reduce((s, v) => s + v, 0);
+    const rangeLabelMap = { '7': 'מאזן שבועי', '30': 'מאזן חודשי', 'all': 'מאזן כולל' };
+    const rangeSummary = document.getElementById('rangeSummary');
+    document.getElementById('rangeSummaryLabel').textContent = rangeLabelMap[graphRange];
+    document.getElementById('rangeSummaryValue').textContent = (rangeTotal >= 0 ? '+' : '') + rangeTotal + ' קל׳';
+    document.getElementById('rangeSummaryValue').style.color = rangeTotal >= 0 ? '#2d6a4f' : '#e53935';
+    document.getElementById('rangeSummaryValue').style.fontWeight = '700';
+    rangeSummary.style.display = '';
 
     const container = document.getElementById('chartContainer');
     const inner = document.getElementById('chartInner');
