@@ -67,3 +67,7 @@ Writes are still multiple requests, not a database transaction. Partial success 
 - Client-only multi-request writes can partially succeed and concurrent devices can overwrite changes.
 
 The old edit-button handler conflict described in the March handoff is already fixed: createFoodRow uses onclick consistently. SECURITY_OVERVIEW.md is historical and includes outdated claims (getSession on startup, exactly three empty innerHTML assignments, complete schema/RLS coverage); use current code and actual database inspection as authority.
+
+## Personal reminder — 2026-10-29
+
+An account-wide reminder textarea (up to 4000 characters) appears below Save/Finalize/Reset. It persists independently of calorie saves, day switches and resets. Drafts save immediately in localStorage under a user-specific key, then sync after a one-second typing pause using the existing Supabase Auth updateUser metadata field `personal_reminder`; no schema migration required. Drafts recover on next login in the same browser, sync retries when online, and failures show an inline retry control. Successful sync makes the note available on next login/load on another device. Concurrent device edits use last-write-wins, not live synchronization. Local storage can be unavailable; inline status never claims local saving when it fails. Test: `node tests/reminder.cjs`.

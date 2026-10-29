@@ -792,6 +792,15 @@
           <button                  class="btn-reset"    onclick="resetDay()">אפס יום</button>
         </div>
       </section>
+      <section aria-labelledby="reminderLabel">
+        <h2 id="reminderLabel"><label for="personalReminder">תזכורת לעצמי</label></h2>
+        <textarea id="personalReminder" rows="5" maxlength="4000"
+          placeholder="למשל: שתי עוגיות של מרבה ועוד גמבה — לבדוק קלוריות אחר כך"
+          style="width:100%; min-height:140px; padding:12px; border:1px solid #ccc; border-radius:8px; font:inherit; font-size:1rem; line-height:1.6; resize:vertical; direction:rtl;"
+          oninput="scheduleReminderSave()" onblur="flushReminder()"></textarea>
+        <p id="reminderStatus" role="status" aria-live="polite" style="font-size:0.82rem; color:#666; margin-top:8px;">נשמר אוטומטית, בנפרד מהמעקב היומי</p>
+        <button id="reminderRetry" type="button" class="btn-add" style="display:none; margin-top:8px;" onclick="flushReminder()">נסה לשמור שוב</button>
+      </section>
     </div>
 
     <div id="graphsView" style="display:none">
@@ -1435,6 +1444,7 @@
         if (choice === 'cancel') return;
         if (choice === 'save') await saveAllRows();
       }
+      await flushReminder();
       await db.auth.signOut();
     } catch (error) {
       reportSaveError(error);
@@ -1482,6 +1492,77 @@
     await db.auth.signOut({ scope: 'local' }).catch(() => {});
     location.reload();
   }
+
+  // Personal reminder is account-wide, independent of dates and calorie saves.
+  // Keep a local draft immediately, then sync the small note to user metadata.
+  let reminderTimer = null;
+  let reminderPending = false;
+  let reminderSaving = false;
+  let reminderOwner = null;
+
+  function reminderDraftKey(uid) { return 'calories-reminder-draft:' + uid; }
+
+  function setReminderStatus(text, retry = false) {
+    document.getElementById('reminderStatus').textContent = text;
+    document.getElementById('reminderRetry').style.display = retry ? '' : 'none';
+  }
+
+  function loadReminder() {
+    clearTimeout(reminderTimer);
+    reminderOwner = currentUser.id;
+    let draft = null;
+    try { draft = localStorage.getItem(reminderDraftKey(reminderOwner)); } catch (_) {}
+    document.getElementById('personalReminder').value = draft !== null
+      ? draft : (currentUser.user_metadata?.personal_reminder || '');
+    reminderPending = draft !== null;
+    setReminderStatus('נשמר אוטומטית, בנפרד מהמעקב היומי');
+    if (reminderPending) flushReminder();
+  }
+
+  function scheduleReminderSave() {
+    if (!currentUser || currentUser.id !== reminderOwner) return;
+    reminderPending = true;
+    try {
+      localStorage.setItem(reminderDraftKey(reminderOwner), document.getElementById('personalReminder').value);
+      setReminderStatus('נשמר במכשיר, מסנכרן לחשבון…');
+    } catch (_) { setReminderStatus('ממתין לשמירה בחשבון…'); }
+    clearTimeout(reminderTimer);
+    reminderTimer = setTimeout(flushReminder, 1000);
+  }
+
+  async function flushReminder() {
+    clearTimeout(reminderTimer);
+    if (reminderSaving || !reminderPending || !currentUser || currentUser.id !== reminderOwner) return;
+    const uid = reminderOwner;
+    const text = document.getElementById('personalReminder').value;
+    reminderSaving = true;
+    reminderPending = false;
+    try {
+      const { error } = await db.auth.updateUser({ data: { personal_reminder: text } });
+      if (error) throw error;
+      if (currentUser?.id !== uid || reminderOwner !== uid) return;
+      currentUser.user_metadata = { ...currentUser.user_metadata, personal_reminder: text };
+      if (!reminderPending) {
+        try { localStorage.removeItem(reminderDraftKey(uid)); } catch (_) {}
+        setReminderStatus('התזכורת נשמרה ✓');
+      }
+    } catch (error) {
+      console.error('Reminder save failed:', error);
+      if (currentUser?.id === uid && reminderOwner === uid) {
+        reminderPending = true;
+        setReminderStatus('התזכורת לא סונכרנה לחשבון. נסו שוב כשהחיבור חוזר.', true);
+      }
+      return;
+    } finally {
+      reminderSaving = false;
+    }
+    if (reminderPending) flushReminder();
+  }
+
+  window.addEventListener('online', () => flushReminder());
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushReminder();
+  });
 
   // ─── Profile (calorie target) ─────────────────────────────────
   let currentProfile = {};
@@ -2887,6 +2968,7 @@
   }
 
   async function loadAndShowApp() {
+    loadReminder();
     await loadProfile();
     touchLastAppOpen();
     await loadTrackingState();
@@ -2926,6 +3008,11 @@
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
+        clearTimeout(reminderTimer);
+        reminderOwner = null;
+        reminderPending = false;
+        document.getElementById('personalReminder').value = '';
+
         saveNeedsRetry = false;
         pendingFoodDeletions.clear();
         pendingCustomFoodRemovals.clear();
