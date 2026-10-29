@@ -22,6 +22,11 @@ jobs:
       - name: Install Playwright
         run: npm install
 
+      - name: Check save errors and daily reminders
+        run: |
+          node tests/save-errors.cjs
+          node tests/reminder.cjs
+
       - name: Install Chromium browser
         run: npx playwright install chromium --with-deps
 

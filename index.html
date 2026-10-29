@@ -799,7 +799,7 @@
           style="width:100%; min-height:140px; padding:12px; border:1px solid #ccc; border-radius:8px; font:inherit; font-size:1rem; line-height:1.6; resize:vertical; direction:rtl;"
           oninput="scheduleReminderSave()" onblur="flushReminder()"></textarea>
         <p id="reminderStatus" role="status" aria-live="polite" style="font-size:0.82rem; color:#666; margin-top:8px;">נשמר אוטומטית, בנפרד מהמעקב היומי</p>
-        <button id="reminderRetry" type="button" class="btn-add" style="display:none; margin-top:8px;" onclick="flushReminder()">נסה לשמור שוב</button>
+        <button id="reminderRetry" type="button" class="btn-add" style="display:none; margin-top:8px;" onclick="retryReminder()">נסה לשמור שוב</button>
       </section>
     </div>
 
@@ -1286,6 +1286,8 @@
         if (choice === 'save') await saveAllRows();
       }
 
+      await flushReminder();
+
       // Switch to the new date
       // Persist before switching the visible day.
       await db.from('user_tracking_state').upsert({
@@ -1293,6 +1295,7 @@
         current_tracking_date: newDate,
       }).throwOnError();
       activeTrackingDate = newDate;
+      loadReminder();
       saveNeedsRetry = false;
       pendingCustomFoodRemovals.clear();
       pendingFoodDeletions.clear();
@@ -1493,73 +1496,116 @@
     location.reload();
   }
 
-  // Personal reminder is account-wide, independent of dates and calorie saves.
-  // Keep a local draft immediately, then sync the small note to user metadata.
+  // Daily reminders have their own save queue; requests capture user + date.
   let reminderTimer = null;
-  let reminderPending = false;
-  let reminderSaving = false;
-  let reminderOwner = null;
+  let reminderState = null;
 
-  function reminderDraftKey(uid) { return 'calories-reminder-draft:' + uid; }
+  function reminderDraftKey(uid, date) { return 'calories-reminder-draft:' + uid + ':' + date; }
 
   function setReminderStatus(text, retry = false) {
     document.getElementById('reminderStatus').textContent = text;
     document.getElementById('reminderRetry').style.display = retry ? '' : 'none';
   }
 
-  function loadReminder() {
+  async function loadReminder() {
     clearTimeout(reminderTimer);
-    reminderOwner = currentUser.id;
-    let draft = null;
-    try { draft = localStorage.getItem(reminderDraftKey(reminderOwner)); } catch (_) {}
-    document.getElementById('personalReminder').value = draft !== null
-      ? draft : (currentUser.user_metadata?.personal_reminder || '');
-    reminderPending = draft !== null;
-    setReminderStatus('נשמר אוטומטית, בנפרד מהמעקב היומי');
-    if (reminderPending) flushReminder();
+    const state = { uid: currentUser.id, date: activeTrackingDate, text: '', pending: false, saving: null, loaded: false };
+    reminderState = state;
+    const input = document.getElementById('personalReminder');
+    input.value = '';
+    input.disabled = true;
+    setReminderStatus('טוען תזכורת ליום הזה…');
+    try {
+      const { data } = await db.from('daily_reminders').select('reminder_text')
+        .eq('user_id', state.uid).eq('tracking_date', state.date).maybeSingle().throwOnError();
+      let draft = null;
+      try {
+        draft = localStorage.getItem(reminderDraftKey(state.uid, state.date));
+        // Recover a pre-daily unsynced draft once on the first active date.
+        const oldKey = 'calories-reminder-draft:' + state.uid;
+        const oldDraft = localStorage.getItem(oldKey);
+        if (oldDraft !== null) {
+          if (draft === null) {
+            draft = oldDraft;
+            localStorage.setItem(reminderDraftKey(state.uid, state.date), draft);
+          }
+          localStorage.removeItem(oldKey);
+        }
+      } catch (_) {}
+      state.text = draft !== null ? draft : (data?.reminder_text || '');
+      state.pending = draft !== null;
+      if (!data) {
+        // An empty day gets its own row; never overwrite a concurrent saved note.
+        await db.from('daily_reminders').upsert(
+          { user_id: state.uid, tracking_date: state.date, reminder_text: '' },
+          { onConflict: 'user_id,tracking_date', ignoreDuplicates: true }
+        ).throwOnError();
+      }
+      state.loaded = true;
+      if (reminderState !== state) return;
+      input.value = state.text;
+      input.disabled = false;
+      setReminderStatus('נשמר אוטומטית עבור היום הזה, בנפרד מהקלוריות');
+      if (state.pending) flushReminder(state);
+    } catch (error) {
+      console.error('Reminder load failed:', error);
+      if (reminderState === state) setReminderStatus('לא ניתן לטעון את התזכורת ליום הזה. נסו שוב.', true);
+    }
   }
 
   function scheduleReminderSave() {
-    if (!currentUser || currentUser.id !== reminderOwner) return;
-    reminderPending = true;
+    const state = reminderState;
+    if (!state?.loaded || currentUser?.id !== state.uid) return;
+    state.text = document.getElementById('personalReminder').value;
+    state.pending = true;
     try {
-      localStorage.setItem(reminderDraftKey(reminderOwner), document.getElementById('personalReminder').value);
-      setReminderStatus('נשמר במכשיר, מסנכרן לחשבון…');
-    } catch (_) { setReminderStatus('ממתין לשמירה בחשבון…'); }
+      localStorage.setItem(reminderDraftKey(state.uid, state.date), state.text);
+      setReminderStatus('נשמר במכשיר, מסנכרן ליום הזה…');
+    } catch (_) { setReminderStatus('ממתין לשמירה ליום הזה…'); }
     clearTimeout(reminderTimer);
-    reminderTimer = setTimeout(flushReminder, 1000);
+    reminderTimer = setTimeout(() => flushReminder(state), 1000);
   }
 
-  async function flushReminder() {
+  async function flushReminder(state = reminderState) {
     clearTimeout(reminderTimer);
-    if (reminderSaving || !reminderPending || !currentUser || currentUser.id !== reminderOwner) return;
-    const uid = reminderOwner;
-    const text = document.getElementById('personalReminder').value;
-    reminderSaving = true;
-    reminderPending = false;
-    try {
-      const { error } = await db.auth.updateUser({ data: { personal_reminder: text } });
-      if (error) throw error;
-      if (currentUser?.id !== uid || reminderOwner !== uid) return;
-      currentUser.user_metadata = { ...currentUser.user_metadata, personal_reminder: text };
-      if (!reminderPending) {
-        try { localStorage.removeItem(reminderDraftKey(uid)); } catch (_) {}
-        setReminderStatus('התזכורת נשמרה ✓');
+    if (!state?.loaded || currentUser?.id !== state.uid) return;
+    if (state.saving) return state.saving;
+    if (!state.pending) return;
+    state.saving = (async () => {
+      try {
+        while (state.pending && currentUser?.id === state.uid) {
+          const text = state.text;
+          state.pending = false;
+          try {
+            await db.from('daily_reminders').upsert({
+              user_id: state.uid, tracking_date: state.date, reminder_text: text,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id,tracking_date' }).throwOnError();
+          } catch (error) {
+            state.pending = true;
+            throw error;
+          }
+          if (!state.pending) {
+            try { localStorage.removeItem(reminderDraftKey(state.uid, state.date)); } catch (_) {}
+            if (reminderState === state) setReminderStatus('התזכורת ליום הזה נשמרה ✓');
+          }
+        }
+      } catch (error) {
+        console.error('Reminder save failed:', error);
+        if (reminderState === state) setReminderStatus('התזכורת לא סונכרנה ליום הזה. נסו שוב כשהחיבור חוזר.', true);
+      } finally {
+        state.saving = null;
       }
-    } catch (error) {
-      console.error('Reminder save failed:', error);
-      if (currentUser?.id === uid && reminderOwner === uid) {
-        reminderPending = true;
-        setReminderStatus('התזכורת לא סונכרנה לחשבון. נסו שוב כשהחיבור חוזר.', true);
-      }
-      return;
-    } finally {
-      reminderSaving = false;
-    }
-    if (reminderPending) flushReminder();
+    })();
+    return state.saving;
   }
 
-  window.addEventListener('online', () => flushReminder());
+  function retryReminder() {
+    if (!reminderState?.loaded) return loadReminder();
+    return flushReminder();
+  }
+
+  window.addEventListener('online', () => retryReminder());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushReminder();
   });
@@ -1972,12 +2018,14 @@
 
 
       // 4. Advance the active tracking date by exactly one day
+      await flushReminder();
       const nextDate = addOneDay(activeTrackingDate);
       await db.from('user_tracking_state').upsert({
         user_id:               currentUser.id,
         current_tracking_date: nextDate,
       }).throwOnError();
       activeTrackingDate = nextDate;
+      loadReminder();
       saveNeedsRetry = false;
 
       updateActiveDateDisplay();
@@ -2968,10 +3016,10 @@
   }
 
   async function loadAndShowApp() {
-    loadReminder();
     await loadProfile();
     touchLastAppOpen();
     await loadTrackingState();
+    loadReminder();
     await Promise.all([loadCustomFoods(), loadFoodVisibility(), loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget(), loadCategoryState()]);
     populateCategorySelect();
     buildList();
@@ -3009,8 +3057,7 @@
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
         clearTimeout(reminderTimer);
-        reminderOwner = null;
-        reminderPending = false;
+        reminderState = null;
         document.getElementById('personalReminder').value = '';
 
         saveNeedsRetry = false;
