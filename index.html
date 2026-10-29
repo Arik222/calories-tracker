@@ -1033,6 +1033,8 @@
   let customFoods        = [];     // permanent custom foods from user_custom_foods table
   let targetSaveTimer    = null;
   let profileTarget      = 2300;   // global default from profiles table
+  const pendingSummaryDates = new Set();
+  let saveNeedsRetry     = false;
   let savedSnapshot      = '{}';   // JSON snapshot of last saved/loaded state
   let categoryStateCache   = {};   // { [category_name]: is_collapsed } — loaded from user_category_state table
   let suppressCatSave      = false;
@@ -1219,7 +1221,7 @@
   }
 
   function hasUnsavedChanges() {
-    return getCurrentUIState() !== savedSnapshot;
+    return saveNeedsRetry || pendingFoodDeletions.size > 0 || pendingCustomFoodRemovals.size > 0 || getCurrentUIState() !== savedSnapshot;
   }
 
   // ─── Unsaved changes modal ────────────────────────────────────
@@ -1267,28 +1269,34 @@
   }
 
   async function requestDateSwitch(newDate) {
-    if (hasUnsavedChanges()) {
-      const choice = await showUnsavedModal();
-      if (choice === 'cancel') return;
-      if (choice === 'save') await saveAllRows();
+    try {
+      if (hasUnsavedChanges()) {
+        const choice = await showUnsavedModal();
+        if (choice === 'cancel') return;
+        if (choice === 'save') await saveAllRows();
+      }
+
+      // Switch to the new date
+      // Persist before switching the visible day.
+      await db.from('user_tracking_state').upsert({
+        user_id:               currentUser.id,
+        current_tracking_date: newDate,
+      }).throwOnError();
+      activeTrackingDate = newDate;
+      saveNeedsRetry = false;
+      pendingCustomFoodRemovals.clear();
+      pendingFoodDeletions.clear();
+      pendingSummaryDates.clear();
+      updateActiveDateDisplay();
+
+      // Load data for the new date and rebuild the list
+      await Promise.all([loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget()]);
+      buildList();
+      updateTotal();
+    } catch (error) {
+      reportSaveError(error);
+      updateActiveDateDisplay();
     }
-
-    // Switch to the new date
-    activeTrackingDate = newDate;
-    pendingCustomFoodRemovals.clear();
-    pendingFoodDeletions.clear();
-    updateActiveDateDisplay();
-
-    // Persist as the user's active tracking day
-    await db.from('user_tracking_state').upsert({
-      user_id:               currentUser.id,
-      current_tracking_date: activeTrackingDate,
-    });
-
-    // Load data for the new date and rebuild the list
-    await Promise.all([loadTodayEntries(), loadExerciseEntries(), loadEffectiveTarget()]);
-    buildList();
-    updateTotal();
   }
 
   // ─── Screen management ────────────────────────────────────────
@@ -1420,12 +1428,16 @@
   }
 
   async function signOut() {
-    if (hasUnsavedChanges()) {
-      const choice = await showUnsavedModal();
-      if (choice === 'cancel') return;
-      if (choice === 'save') await saveAllRows();
+    try {
+      if (hasUnsavedChanges()) {
+        const choice = await showUnsavedModal();
+        if (choice === 'cancel') return;
+        if (choice === 'save') await saveAllRows();
+      }
+      await db.auth.signOut();
+    } catch (error) {
+      reportSaveError(error);
     }
-    await db.auth.signOut();
   }
 
   function populateSettingsFields() {
@@ -1622,13 +1634,13 @@
         quantity:          qty,
       },
       { onConflict: 'user_id,date,food_name' }
-    );
+    ).throwOnError();
     // If this food was hidden, un-hide it now that the user is explicitly checking it.
     if (foodVisibility[foodName]) {
       await db.from('user_food_visibility')
         .delete()
         .eq('user_id', currentUser.id)
-        .eq('food_name', foodName);
+        .eq('food_name', foodName).throwOnError();
       delete foodVisibility[foodName];
     }
   }
@@ -1649,7 +1661,7 @@
     await db.from('daily_exercise_entries').upsert(
       { user_id: currentUser.id, date: activeTrackingDate, exercise_name: name, calories_per_unit: calPerUnit, quantity: qty },
       { onConflict: 'user_id,date,exercise_name' }
-    );
+    ).throwOnError();
   }
 
   async function deleteExerciseEntry(name) {
@@ -1657,7 +1669,7 @@
       .delete()
       .eq('user_id',       currentUser.id)
       .eq('date',          activeTrackingDate)
-      .eq('exercise_name', name);
+      .eq('exercise_name', name).throwOnError();
   }
 
   // ─── Summary recalculation ────────────────────────────────────
@@ -1668,9 +1680,9 @@
     const uid = currentUser.id;
 
     const [{ data: foods }, { data: exs }, { data: existing }] = await Promise.all([
-      db.from('daily_food_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date),
-      db.from('daily_exercise_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date),
-      db.from('daily_summaries').select('status').eq('user_id', uid).eq('tracking_date', date).maybeSingle(),
+      db.from('daily_food_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date).throwOnError(),
+      db.from('daily_exercise_entries').select('calories_per_unit, quantity').eq('user_id', uid).eq('date', date).throwOnError(),
+      db.from('daily_summaries').select('status').eq('user_id', uid).eq('tracking_date', date).maybeSingle().throwOnError(),
     ]);
 
     const hasFoods = foods && foods.length > 0;
@@ -1678,7 +1690,7 @@
 
     if (!hasFoods && !hasEx) {
       if (existing) {
-        await db.from('daily_summaries').delete().eq('user_id', uid).eq('tracking_date', date);
+        await db.from('daily_summaries').delete().eq('user_id', uid).eq('tracking_date', date).throwOnError();
       }
       return null;
     }
@@ -1696,7 +1708,7 @@
       calorie_target:  target,
       exercise_burned: burned,
       status,
-    }, { onConflict: 'user_id,tracking_date' });
+    }, { onConflict: 'user_id,tracking_date' }).throwOnError();
 
     return { total, burned, balance: target - total + burned };
   }
@@ -1705,6 +1717,7 @@
 
   // Shared save logic: write checked items, remove previously-saved items that are now unchecked.
   async function saveAllRows() {
+    saveNeedsRetry = true;
     // 1. Collect all checked items (use a Map so duplicate names don't conflict)
     const checkedItems = new Map(); // food_name → { cal, qty }
     for (const row of getAllRows()) {
@@ -1731,12 +1744,12 @@
             .eq('user_id',   currentUser.id)
             .eq('date',      activeTrackingDate)
             .eq('food_name', name)
-            .select()
+            .select().throwOnError()
         );
       }
     }
 
-    await Promise.all(ops);
+    await settleSaveOperations(ops);
 
     // 4. Keep todayEntries in sync so subsequent saves are accurate
     todayEntries = {};
@@ -1758,7 +1771,7 @@
     for (const name of Object.keys(exerciseEntries)) {
       if (!checkedExercise.has(name)) exOps.push(deleteExerciseEntry(name));
     }
-    await Promise.all(exOps);
+    await settleSaveOperations(exOps);
     exerciseEntries = {};
     for (const [name, { cal, qty }] of checkedExercise) {
       exerciseEntries[name] = { exercise_name: name, calories_per_unit: cal, quantity: qty };
@@ -1774,7 +1787,9 @@
           .select('date')
           .eq('user_id', currentUser.id)
           .eq('food_name', name)
-          .gte('date', activeTrackingDate);
+          .gte('date', activeTrackingDate).throwOnError();
+
+        (affectedEntries || []).forEach(entry => pendingSummaryDates.add(entry.date));
 
         // Delete existing entries for this food across current + future dates.
         await db.from('daily_food_entries')
@@ -1782,22 +1797,19 @@
           .eq('user_id', currentUser.id)
           .eq('food_name', name)
           .gte('date', activeTrackingDate)
-          .select();
+          .select().throwOnError();
 
         // Record that this food is hidden from activeTrackingDate forward.
         // This persists across devices and covers dates with no prior entry.
         await db.from('user_food_visibility').upsert(
           { user_id: currentUser.id, food_name: name, hidden_from_date: activeTrackingDate },
           { onConflict: 'user_id,food_name' }
-        );
+        ).throwOnError();
         foodVisibility[name] = activeTrackingDate;
 
-        // Recalculate summaries for all affected dates
-        if (affectedEntries && affectedEntries.length > 0) {
-          const affectedDates = [...new Set(affectedEntries.map(e => e.date))];
-          await Promise.all(affectedDates.map(d => recalcSummaryForDate(d, false)));
-        }
       }
+      await settleSaveOperations([...pendingSummaryDates].map(d => recalcSummaryForDate(d, false)));
+      pendingSummaryDates.clear();
       pendingFoodDeletions.clear();
     }
 
@@ -1807,7 +1819,7 @@
         await db.from('user_custom_foods')
           .delete()
           .eq('user_id', currentUser.id)
-          .eq('food_name', name);
+          .eq('food_name', name).throwOnError();
       }
       pendingCustomFoodRemovals.clear();
     }
@@ -1815,7 +1827,8 @@
     // 8. Recalculate daily_summaries from the entries just written
     await recalcSummaryForDate(activeTrackingDate, false);
 
-    // 9. Update snapshot — UI is now in sync with DB
+    // 9. Update snapshot only after every required write succeeded.
+    saveNeedsRetry = false;
     updateSnapshot();
 
     // 10. Refresh graphs if that tab is currently visible
@@ -1827,59 +1840,81 @@
   }
 
   // "שמור" button
+  async function settleSaveOperations(operations) {
+    const results = await Promise.allSettled(operations);
+    const failure = results.find(result => result.status === 'rejected');
+    if (failure) throw failure.reason;
+  }
+
+  function reportSaveError(error) {
+    console.error('Save failed:', error);
+    alert('השמירה לא הושלמה. ייתכן שחלק מהנתונים נשמרו. השינויים נשארו על המסך — בדקו את החיבור ונסו לשמור שוב.');
+  }
+
   async function saveProgress() {
     const btn = document.getElementById('btnSave');
-    btn.disabled    = true;
+    btn.disabled = true;
     btn.textContent = 'שומר...';
-    await saveAllRows();
-    btn.textContent = 'נשמר ✓';
-    setTimeout(() => {
-      btn.disabled    = false;
-      btn.textContent = 'שמור';
-    }, 2000);
+    try {
+      await saveAllRows();
+      btn.textContent = 'נשמר ✓';
+    } catch (error) {
+      reportSaveError(error);
+    } finally {
+      btn.disabled = false;
+      if (btn.textContent !== 'נשמר ✓') btn.textContent = 'שמור';
+      else setTimeout(() => { if (!btn.disabled) btn.textContent = 'שמור'; }, 2000);
+    }
   }
 
   // "סיימתי להיום, עבור ליום הבא"
   async function finalizeDay() {
-    if (hasUnsavedChanges()) {
-      // Unsaved changes: ask user whether to save them first
-      const choice = await showFinalizeModal();
-      if (choice === 'cancel') return;
-      if (choice === 'save') await saveAllRows();
-      // 'skip' — keep current DB entries as-is; summary will still be derived from them
+    try {
+      if (hasUnsavedChanges()) {
+        // Unsaved changes: ask user whether to save them first
+        const choice = await showFinalizeModal();
+        if (choice === 'cancel') return;
+        if (choice === 'save') await saveAllRows();
+        // 'skip' — keep current DB entries as-is; summary will still be derived from them
+      }
+
+      const btn = document.getElementById('btnFinalize');
+      btn.disabled = true;
+
+      // Derive summary entirely from DB entries — never from UI-only state
+      const result = await recalcSummaryForDate(activeTrackingDate, true);
+      const balance = result ? result.balance : 0;
+
+      // Show motivational message, wait for user to dismiss
+      await showMotivationModal(balance, currentProfile.gender);
+
+
+      // 4. Advance the active tracking date by exactly one day
+      const nextDate = addOneDay(activeTrackingDate);
+      await db.from('user_tracking_state').upsert({
+        user_id:               currentUser.id,
+        current_tracking_date: nextDate,
+      }).throwOnError();
+      activeTrackingDate = nextDate;
+      saveNeedsRetry = false;
+
+      updateActiveDateDisplay();
+
+      // 5. Load whatever data exists for the new date (may be empty, may not)
+      await Promise.all([loadTodayEntries(), loadExerciseEntries()]);
+      buildList();
+      updateTotal();
+
+      // 6. Refresh graphs so completed-days counter updates immediately
+      if (document.getElementById('graphsView').style.display !== 'none') {
+        loadAndRenderGraphs();
+      }
+
+      btn.disabled = false;
+    } catch (error) {
+      reportSaveError(error);
     }
-
-    const btn = document.getElementById('btnFinalize');
-    btn.disabled = true;
-
-    // Derive summary entirely from DB entries — never from UI-only state
-    const result = await recalcSummaryForDate(activeTrackingDate, true);
-    const balance = result ? result.balance : 0;
-
-    // Show motivational message, wait for user to dismiss
-    await showMotivationModal(balance, currentProfile.gender);
-
-
-    // 4. Advance the active tracking date by exactly one day
-    activeTrackingDate = addOneDay(activeTrackingDate);
-    await db.from('user_tracking_state').upsert({
-      user_id:               currentUser.id,
-      current_tracking_date: activeTrackingDate,
-    });
-
-    updateActiveDateDisplay();
-
-    // 5. Load whatever data exists for the new date (may be empty, may not)
-    await Promise.all([loadTodayEntries(), loadExerciseEntries()]);
-    buildList();
-    updateTotal();
-
-    // 6. Refresh graphs so completed-days counter updates immediately
-    if (document.getElementById('graphsView').style.display !== 'none') {
-      loadAndRenderGraphs();
-    }
-
-    btn.disabled = false;
+    finally { document.getElementById('btnFinalize').disabled = false; }
   }
 
   // "אפס יום" — clears all food entries for the active day
@@ -2890,6 +2925,10 @@
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
+        saveNeedsRetry = false;
+        pendingFoodDeletions.clear();
+        pendingCustomFoodRemovals.clear();
+        pendingSummaryDates.clear();
         currentUser        = null;
         activeTrackingDate = null;
         todayEntries       = {};

@@ -210,3 +210,7 @@ The main architectural risks, in order of likelihood and impact:
 | Stolen session JWT used from another device | Low | Medium — scoped to victim's own data only | Supabase token expiry and refresh rotation |
 
 Policy correctness and DOM API hygiene are the two controls that must be maintained as the app evolves.
+
+## Maintenance note — 2026-10-29
+
+This document is a historical review, not a current security certification. Startup currently calls `getUser()`, graph rendering includes numeric HTML strings, and account deletion directly deletes the caller's auth row in SQL. Local migration files are incomplete and cannot establish production RLS status. CSP does not guarantee prevention of all exfiltration. See PROJECT_MEMORY.md for the current implementation and known limitations. Daily save error handling was improved locally; multi-request writes remain non-transactional.

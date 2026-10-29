@@ -1,167 +1,69 @@
-# PROJECT MEMORY — מערכת לניהול קלוריות (Calories Tracker)
+# Calories Tracker — current project handoff
 
-Last updated: 2026-03-26
+Updated: 2026-10-29. Based on local source inspection; production database settings and deployment status have not been verified.
 
----
+## Product and architecture
 
-## Project Goal
+A live Hebrew RTL calorie tracker used daily. Vanilla HTML, CSS and JavaScript live together in `index.html`; no frontend build step. Supabase supplies Auth and Postgres directly from the browser. Chart.js and Supabase JS load from CDN; Heebo loads from Google Fonts.
 
-A personal Hebrew calorie tracking web app. Users log daily food and exercise, track a calorie balance, finalize each day, and view a historical graph. Built for real daily use, including mobile.
+`www/index.html` is currently identical to the root app. Capacitor uses `www` as its web directory, but Android is configured to load https://calories-tracker-kappa.vercel.app remotely. Native MainActivity extends BridgeActivity without custom logic.
 
----
+Git repository: Arik222/calories-tracker. Earlier handoff describes Vercel auto-deployment on pushes to main; verify the remote configuration before relying on it. `vercel.json` defines CSP and other security headers. No deployment was performed during this handoff.
 
-## Architecture
+## Current behavior
 
-- **Single-file frontend**: everything is in `index.html` (~2234 lines). No build step, no bundler, no npm for the app itself.
-- **Backend**: Supabase (hosted Postgres + Auth). RLS enabled on all tables. Client-side only — no server-side code.
-- **Deployment**: GitHub → Vercel auto-deploy on push to `main`.
-- **Live URL**: `https://calories-tracker-kappa.vercel.app`
-- **Fonts**: Google Fonts Heebo (loaded from CDN) for Hebrew typography.
-- **Charts**: Chart.js v4 via CDN.
-- **Auth**: Supabase email/password. Email confirmation enabled. Uses `db.auth.getUser()` (server round-trip) on init — not `getSession()` — to detect deleted/stale sessions.
+- Email/password registration with confirmation and Google OAuth. Startup validates identity with `auth.getUser()`; auth events handle sign-in/out.
+- Signup metadata includes optional personal details and terms acceptance. A consent gate requires acceptance of the current terms version (`2026-04-16`).
+- Food catalog, custom foods, categories, search, quantities and exercise tracking.
+- Balance = target − consumed + burned. Totals round after summation.
+- Active date belongs to the user, independent of the clock. Finalizing advances exactly one day after the motivational dialog.
+- Save writes selected food/exercise entries, removes unchecked saved entries and recalculates the daily summary. Finalize derives the summary from stored entries, not unsaved screen values.
+- Graphs show completed summaries. Range buttons take the last 7/30 recorded days or all records, not necessarily consecutive calendar days. Summary includes the existing calorie-to-kg conversion.
+- Target history applies targets by effective date. Target changes save separately after an 800 ms delay.
+- Editing a food's name or calorie value applies to all historical entries for that user. Calorie edits recalculate affected summaries and currently mark them completed.
+- Removing food with × queues deletion until Save: deletes entries from the active date forward and records visibility from that date. Custom foods are also removed from the personal catalog.
+- Category expansion is persisted per user. Settings include personal details and account deletion. Profile timestamps and milestone fields exist; milestone dialogs are implemented, but their invocation should be checked before assuming they appear.
 
----
+## Data and security
 
-## File Reference
+Tables referenced by current app: profiles, daily_food_entries, daily_exercise_entries, daily_summaries, user_tracking_state, calorie_target_history, user_custom_foods, user_category_state, user_food_visibility, user_terms_consents.
 
-| File | Purpose |
-|------|---------|
-| `index.html` | Entire app — HTML, CSS, JS in one file |
-| `config.js` | Was the Supabase URL/key config — **now orphaned**. Constants were inlined into `index.html` directly (required for CI security test). Can be deleted safely. |
-| `supabase-setup.sql` | Original table creation + RLS policies (`profiles`, `daily_food_entries`) |
-| `supabase-history.sql` | Later migrations: `user_tracking_state`, `daily_summaries`, init data |
-| `messages_hebrew.txt` | Human-readable export of all 4 motivational message groups (UTF-8, Hebrew) |
-| `tests.html` | QUnit browser test suite (~45 assertions across 6 modules) |
-| `run-tests.js` | Playwright headless runner for CI — opens tests.html, exits 0/1 |
-| `package.json` | Minimal — only declares `playwright` as a dev dep for CI |
-| `.github/workflows/tests.yml` | GitHub Actions: runs on every push to main |
-| `.gitignore` | Excludes `node_modules/`, `.DS_Store` |
+Public Supabase URL and publishable key in the browser are intentional. User isolation depends on database RLS. Local SQL describes policies but does not prove production state.
 
----
+`delete_my_account()` deletes the caller's data and auth row; newer tables rely on cascading foreign keys. Consent RPC was introduced then removed by later migrations. Do not rerun migration files indiscriminately.
 
-## Database Schema (Supabase)
+SQL files do not form a complete reproducible schema: definitions for some later tables/columns and numeric calorie type changes are missing. Inspect actual schema before database work.
 
-All tables have RLS. Users can only read/write their own rows.
+## October 29 maintenance changes (local, not deployed)
 
-### `profiles`
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | uuid PK | = auth.users.id |
-| `daily_calorie_target` | integer | default 2300 |
-| `height_cm` | numeric | stored in cm regardless of input unit |
-| `weight_kg` | numeric | stored in kg regardless of input unit |
-| `height_unit` | text | 'cm' or 'inch' (display preference) |
-| `weight_unit` | text | 'kg' or 'lb' (display preference) |
-| `age` | int | |
-| `gender` | text | 'male', 'female', 'other', or null |
+- Daily save queries and summary reads/writes reject Supabase errors instead of silently ignoring them.
+- Failed saving displays a Hebrew warning, restores the Save button and keeps a retry flag. No success indication on failure.
+- Saving before date changes, sign-out or finalization must succeed before continuing.
+- Tracking-date persistence is checked before changing the in-memory date.
+- Parallel save operations settle before a retry is allowed. Affected summary dates remain queued if deletion/recalculation fails.
+- Pending removals trigger unsaved-change detection.
+- Root and www app copies remain identical.
 
-### `daily_food_entries`
-`id, user_id, date, food_name, calories_per_unit, quantity` — unique on `(user_id, date, food_name)`
+Writes are still multiple requests, not a database transaction. Partial success is possible; the error message states this. This patch does not harden every other app write path.
 
-### `daily_exercise_entries`
-`id, user_id, date, exercise_name, calories_burned, quantity`
+## Tests and local work
 
-### `daily_summaries`
-`id, user_id, tracking_date, total_calories, calorie_balance, exercise_burned, status ('open'|'completed')` — unique on `(user_id, tracking_date)` — this is what powers the graph
+- Existing QUnit suite: `tests.html`. Includes isolated copies of helper logic and source-pattern checks, so it does not prove end-to-end database behavior.
+- Existing runner: serve the root on port 8080, then `node run-tests.js` (Playwright/Chromium required; QUnit loads over the network).
+- CI: `.github/workflows/tests.yml`, runs on main pushes and PRs. `npm test` is still a placeholder.
+- New local regression checks: `node tests/save-errors.cjs`; executes the actual action functions with simulated failures, checks navigation/sign-out/finalization abort, button recovery, parallel settling, success feedback and app-copy equality.
+- `backup.js` is an unfinished script with placeholder credentials, incomplete table coverage and ESM imports in a CommonJS project. It does not establish that backups are running. Never place a service-role key in browser files.
+- `config.js` is a legacy unused config; retained.
+- Android plans are historical task-specific instructions, not evidence the builds were completed.
+- Pre-existing local changes: package.json/package-lock.json modified; .claude, Android plans, android, backup.js and pictures untracked. Preserve them.
 
-### `user_tracking_state`
-`user_id, current_tracking_date` — one row per user, the currently active tracking day
+## Remaining known concerns
 
-### `calorie_target_history`
-Tracks calorie target changes over time for accurate per-day graph balance calculation.
+- Separate target autosave, inline historical edits, reset-day and several startup/read paths still need systematic error handling.
+- recalcSummaryForDate uses the visible target even when invoked for a different date during propagated deletion.
+- Default-catalog edits persist in historical entries but only change the built-in catalog in memory.
+- Settings populate stored kg/cm directly even when the selected display units are lb/inch.
+- New-user real-today helper uses UTC; near local midnight it can differ from the local date.
+- Client-only multi-request writes can partially succeed and concurrent devices can overwrite changes.
 
-### `user_custom_foods`
-`user_id, food_name, calories_per_unit, unit, category` — user's own custom food entries
-
-### Postgres Function
-`delete_my_account()` — security definer, deletes all user data + auth.users row. Called via `db.rpc('delete_my_account')`.
-
----
-
-## Key JS Functions in index.html
-
-| Function | What it does |
-|----------|-------------|
-| `init()` | App entry point — calls `db.auth.getUser()`, shows auth or app |
-| `loadAndShowApp()` | Loads profile, tracking state, foods, exercise, target, then shows app |
-| `loadProfile()` | Fetches `profiles` row; creates it on first login using `user_metadata` from signup |
-| `finalizeDay()` | Saves `daily_summaries` row, shows motivation modal, advances active date |
-| `showMotivationModal(balance, gender)` | Returns a Promise, shows gender+balance-specific Hebrew message |
-| `deleteAccount()` | Calls RPC, local signOut, location.reload() |
-| `saveProfileDetails()` | Updates profiles row from settings form (age, gender, weight, height) |
-| `populateSettingsFields()` | Called when switching to settings tab — populates form from `currentProfile` |
-| `switchTab(tab)` | Switches between מעקב יומי / גרפים / הגדרות |
-| `addOneDay(dateStr)` | Timezone-safe date increment (YYYY-MM-DD) |
-| `formatDateHebrew(dateStr)` | Converts YYYY-MM-DD → DD/MM/YYYY |
-| `updateTotal()` | Recalculates and displays total/burned/balance from current DOM state |
-
----
-
-## Current Status
-
-Working and deployed. Core features complete:
-
-- ✅ Food tracking (categories, quantities, custom foods)
-- ✅ Exercise tracking
-- ✅ Daily calorie balance (target - consumed + burned)
-- ✅ Finalize day → saves summary → advances to next day
-- ✅ Historical graph (Chart.js, balance per day)
-- ✅ Motivational popup after finalizing (4 groups: gender × success/failure, 12–13 msgs each)
-- ✅ Settings tab: personal details (email, age, gender, weight, height) + account deletion
-- ✅ Auth screen: split layout, Heebo font, height/weight/age/gender at signup
-- ✅ Mobile responsive header (title stacks above date/email on small screens)
-- ✅ Date picker: full button clickable on mobile (transparent overlay technique)
-- ✅ QUnit test suite (45 assertions: date utils, balance math, unit conversion, message selection, security scan, DOM logic)
-- ✅ GitHub Actions CI (Playwright headless, runs on every push to main)
-
----
-
-## Known Bugs / Issues
-
-### Edit button (✓) for food rows — NOT YET FIXED
-The `✎` edit button on food rows becomes unresponsive after clicking to confirm (`✓`).
-
-**Root cause (identified):** `createFoodRow` adds a permanent `addEventListener('click', () => startEditRow(row))`. In edit mode, `startEditRow` also sets `row._editBtn.onclick = save`. Clicking `✓` fires both handlers — `startEditRow` re-enters edit mode, racing or overriding the save.
-
-**Fix needed:** In `startEditRow`, before setting the save handler, remove the original `addEventListener`. In `cleanup()`, re-add it. Use a named function so it can be removed properly.
-
----
-
-## Product Decisions Already Made
-
-- `activeTrackingDate` is user-controlled (not clock-based) — intentional, users can track past days
-- Balance = target - consumed + burned. Positive = under target (good). Negative = over target (bad).
-- Graph only shows **finalized** days (from `daily_summaries`). Open days don't appear.
-- `daily_summaries` is the source of truth for the graph — not reconstructed from entries on the fly.
-- `delete_my_account()` uses `security definer` + `set search_path = public, auth` to reach auth.users
-- Auth uses `getUser()` not `getSession()` — prevents stale sessions after manual user deletion
-- Supabase anon key in `index.html` is intentional — it's a publishable key, RLS protects data
-- Gender defaults to 'male' message group when null/other (not a bug)
-- Motivation popup must be dismissed before date advances (Promise-based modal)
-- `config.js` is now orphaned — constants were inlined into `index.html` for the CI security scan
-
----
-
-## Next Recommended Steps
-
-1. **Fix the edit button bug** (highest priority, known regression)
-   - File: `index.html`, functions `createFoodRow` and `startEditRow`
-   - Use named handler function + `removeEventListener` before switching to save mode
-
-2. **Delete `config.js`** — it's orphaned, constants are now in `index.html`
-
-3. **Verify CI is green** — check GitHub → Actions tab after next push to confirm all 45 tests pass in headless Chrome
-
-4. **Consider BMR/TDEE calculation** — age, gender, height, weight are now stored in `profiles`; could auto-suggest a calorie target based on them
-
-5. **Password reset flow** — currently users who forget their password must use Supabase dashboard. Could add a "שכחתי סיסמה" link on the auth screen.
-
----
-
-## Dev Notes
-
-- Run locally: `cd "~/calories project" && python3 -m http.server 8080` → `http://localhost:8080`
-- Run tests locally: same server → `http://localhost:8080/tests.html`
-- Push to deploy: `git push` triggers Vercel auto-deploy (usually ~30 seconds)
-- No package install needed for the app itself — only `npm install` for CI/testing (playwright)
-- All SQL migrations must be run manually in Supabase SQL editor after schema changes; remember to run `NOTIFY pgrst, 'reload schema'` after adding columns
+The old edit-button handler conflict described in the March handoff is already fixed: createFoodRow uses onclick consistently. SECURITY_OVERVIEW.md is historical and includes outdated claims (getSession on startup, exactly three empty innerHTML assignments, complete schema/RLS coverage); use current code and actual database inspection as authority.
