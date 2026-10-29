@@ -26,6 +26,7 @@ jobs:
         run: |
           node tests/save-errors.cjs
           node tests/reminder.cjs
+          node tests/graphs.cjs
 
       - name: Install Chromium browser
         run: npx playwright install chromium --with-deps

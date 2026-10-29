@@ -639,6 +639,35 @@
         padding-top: 10px !important;
       }
     }
+
+    /* Additional graph design — independent from the original chart. */
+    .pulse-section { margin-top:28px; }
+    .pulse-heading { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+    .pulse-heading h2 { font-size:1.45rem; color:#17213b; letter-spacing:-0.5px; }
+    .pulse-heading p { font-size:0.83rem; color:#758097; margin-top:4px; }
+    .pulse-new { background:#e8e5ff; color:#6650ce; border:1px solid #d8d0ff; border-radius:30px; padding:5px 12px; font-size:0.74rem; font-weight:700; white-space:nowrap; }
+    .pulse-card { --pulse:#32e0b5; --pulse-soft:rgba(50,224,181,.13); background:#121d32; color:#fff; border-radius:24px; padding:23px 20px 18px; margin-bottom:18px; overflow:hidden; position:relative; box-shadow:0 12px 28px rgba(22,30,54,.13); border:1px solid #25334c; }
+    .pulse-card::before { content:''; position:absolute; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,var(--pulse-soft),transparent 70%); top:-100px; left:-60px; pointer-events:none; }
+    .pulse-card.month { --pulse:#b29aff; --pulse-soft:rgba(178,154,255,.16); }
+    .pulse-card.all { --pulse:#ffbf79; --pulse-soft:rgba(255,191,121,.16); }
+    .pulse-card-top { display:flex; align-items:center; justify-content:space-between; position:relative; gap:10px; }
+    .pulse-period { display:flex; align-items:center; gap:9px; font-size:1rem; font-weight:700; }
+    .pulse-dot { width:9px; height:9px; border-radius:50%; background:var(--pulse); box-shadow:0 0 16px var(--pulse-soft); }
+    .pulse-dates { color:#a2afc6; font-size:.72rem; margin-top:5px; }
+    .pulse-days { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); color:#d4ddef; border-radius:10px; padding:6px 9px; font-size:.73rem; white-space:nowrap; }
+    .pulse-balance { display:flex; align-items:baseline; gap:8px; margin:20px 0 2px; }
+    .pulse-number { font-size:2.65rem; line-height:1.15; font-weight:800; letter-spacing:-1.7px; color:var(--pulse); font-variant-numeric:tabular-nums; }
+    .pulse-number.over { color:#ff8d9e; }
+    .pulse-unit { font-size:.82rem; color:#b3bfd4; }
+    .pulse-equivalent { font-size:.8rem; color:#b3bfd4; margin-bottom:17px; }
+    .pulse-equivalent strong { color:#eef2fa; font-weight:500; }
+    .pulse-chart { position:relative; height:175px; width:100%; direction:ltr; }
+    .pulse-footer { display:grid; grid-template-columns:1fr 1fr; gap:14px; padding-top:15px; margin-top:12px; border-top:1px solid rgba(255,255,255,.09); }
+    .pulse-footer span { display:block; color:#9aa9c2; font-size:.73rem; margin-bottom:4px; }
+    .pulse-footer strong { color:#eef2fa; font-size:1.02rem; font-weight:600; }
+    .pulse-caption { color:#758097; font-size:.74rem; line-height:1.7; padding:0 5px; }
+    @media(max-width:420px) { .pulse-card { padding:20px 15px 16px; } .pulse-number { font-size:2.3rem; } .pulse-heading h2 { font-size:1.25rem; } }
+    @media(prefers-reduced-motion:reduce) { .pulse-card { scroll-behavior:auto; } }
   </style>
 </head>
 <body>
@@ -837,6 +866,34 @@
           📊<br>אין נתונים להצגה עדיין.<br>סיים לפחות יום אחד כדי לראות גרף.
         </div>
       </section>
+      <div id="pulseSection" class="pulse-section" style="display:none" aria-labelledby="pulseTitle">
+        <div class="pulse-heading">
+          <div><h2 id="pulseTitle">המאזן שלך, במבט חדש</h2><p>שלוש תקופות. הסיפור שלך במספרים.</p></div>
+          <span class="pulse-new">תצוגה חדשה</span>
+        </div>
+        <article class="pulse-card week" aria-label="השבוע שלך">
+          <div class="pulse-card-top"><div><div class="pulse-period"><i class="pulse-dot" aria-hidden="true"></i>השבוע שלך</div><div class="pulse-dates" id="pulseDates-week"></div></div><span class="pulse-days" id="pulseDays-week"></span></div>
+          <div class="pulse-balance"><b class="pulse-number" id="pulseTotal-week" dir="ltr"></b><span class="pulse-unit">קל׳ במאזן</span></div>
+          <div class="pulse-equivalent">שווה ערך ל־<strong id="pulseKg-week"></strong> ק״ג</div>
+          <div class="pulse-chart"><canvas id="pulseChart-week" role="img" aria-label="גרף מאזן קלורי — השבוע שלך"></canvas></div>
+          <div class="pulse-footer"><div><span>מאזן יומי ממוצע</span><strong id="pulseAvg-week" dir="ltr"></strong></div><div><span>השיא היומי</span><strong id="pulseBest-week" dir="ltr"></strong></div></div>
+        </article>
+        <article class="pulse-card month" aria-label="החודש שלך">
+          <div class="pulse-card-top"><div><div class="pulse-period"><i class="pulse-dot" aria-hidden="true"></i>החודש שלך</div><div class="pulse-dates" id="pulseDates-month"></div></div><span class="pulse-days" id="pulseDays-month"></span></div>
+          <div class="pulse-balance"><b class="pulse-number" id="pulseTotal-month" dir="ltr"></b><span class="pulse-unit">קל׳ במאזן</span></div>
+          <div class="pulse-equivalent">שווה ערך ל־<strong id="pulseKg-month"></strong> ק״ג</div>
+          <div class="pulse-chart"><canvas id="pulseChart-month" role="img" aria-label="גרף מאזן קלורי — החודש שלך"></canvas></div>
+          <div class="pulse-footer"><div><span>מאזן יומי ממוצע</span><strong id="pulseAvg-month" dir="ltr"></strong></div><div><span>השיא היומי</span><strong id="pulseBest-month" dir="ltr"></strong></div></div>
+        </article>
+        <article class="pulse-card all" aria-label="כל הדרך שלך">
+          <div class="pulse-card-top"><div><div class="pulse-period"><i class="pulse-dot" aria-hidden="true"></i>כל הדרך שלך</div><div class="pulse-dates" id="pulseDates-all"></div></div><span class="pulse-days" id="pulseDays-all"></span></div>
+          <div class="pulse-balance"><b class="pulse-number" id="pulseTotal-all" dir="ltr"></b><span class="pulse-unit">קל׳ במאזן</span></div>
+          <div class="pulse-equivalent">שווה ערך ל־<strong id="pulseKg-all"></strong> ק״ג</div>
+          <div class="pulse-chart"><canvas id="pulseChart-all" role="img" aria-label="גרף מאזן קלורי — כל הדרך שלך"></canvas></div>
+          <div class="pulse-footer"><div><span>מאזן יומי ממוצע</span><strong id="pulseAvg-all" dir="ltr"></strong></div><div><span>השיא היומי</span><strong id="pulseBest-all" dir="ltr"></strong></div></div>
+        </article>
+        <p class="pulse-caption">לפי אותם ימים שסיימת בתצוגה הקיימת: 7 הרשומות האחרונות, 30 הרשומות האחרונות או כל התקופה. המרת ק״ג לפי 7,700 קל׳ לק״ג, כמו בסיכום הקיים.</p>
+      </div>
     </div>
 
     <div id="settingsView" style="display:none">
@@ -2840,7 +2897,58 @@
     });
   });
 
+  const pulseCharts = [];
+
+  function clearPulseCharts() {
+    pulseCharts.forEach(chart => chart.destroy());
+    pulseCharts.length = 0;
+    document.getElementById('pulseSection').style.display = 'none';
+  }
+
+  function renderPulseCharts(rows) {
+    clearPulseCharts();
+    document.getElementById('pulseSection').style.display = '';
+    const signed = value => (value >= 0 ? '+' : '') + value;
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    for (const [key, limit, color] of [['week', 7, '#32e0b5'], ['month', 30, '#b29aff'], ['all', null, '#ffbf79']]) {
+      const visible = limit === null ? rows : rows.slice(-limit);
+      const values = visible.map(row => row.balance);
+      const total = values.reduce((sum, value) => sum + value, 0);
+      const totalEl = document.getElementById('pulseTotal-' + key);
+      totalEl.textContent = signed(total);
+      totalEl.classList.toggle('over', total < 0);
+      document.getElementById('pulseKg-' + key).textContent = parseFloat((Math.abs(total) / 7700).toFixed(2));
+      document.getElementById('pulseDays-' + key).textContent = visible.length + ' ימים שסיימת';
+      document.getElementById('pulseDates-' + key).textContent = formatDateHebrew(visible[0].date) + ' – ' + formatDateHebrew(visible[visible.length - 1].date);
+      document.getElementById('pulseAvg-' + key).textContent = signed(Math.round(total / visible.length)) + ' קל׳';
+      document.getElementById('pulseBest-' + key).textContent = signed(Math.max(...values)) + ' קל׳';
+      const canvas = document.getElementById('pulseChart-' + key);
+      canvas.setAttribute('aria-label', visible.length + ' ימים שסיימת. מאזן כולל: ' + signed(total) + ' קלוריות');
+      pulseCharts.push(new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: visible.map(row => formatDateHebrew(row.date)),
+          datasets: [{ data: values, backgroundColor: values.map(value => value >= 0 ? color : '#ff8d9e'), borderRadius: 5, maxBarThickness: 18 }],
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: reducedMotion ? false : { duration: 450 },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: { rtl: true, displayColors: false, backgroundColor: '#f3f5fc', titleColor: '#65718a', bodyColor: '#17213b', padding: 12, cornerRadius: 10, titleFont: { family: 'Heebo' }, bodyFont: { family: 'Heebo', weight: '700' }, callbacks: { label: ctx => 'מאזן: ' + signed(ctx.parsed.y) + ' קל׳' } },
+          },
+          scales: {
+            x: { border: { display: false }, grid: { display: false }, ticks: { color: '#94a4be', maxTicksLimit: 5, maxRotation: 0, font: { family: 'Heebo', size: 10 } } },
+            y: { border: { display: false }, grid: { color: ctx => ctx.tick.value === 0 ? 'rgba(255,255,255,.3)' : 'rgba(255,255,255,.06)' }, ticks: { color: '#94a4be', maxTicksLimit: 4, font: { family: 'Heebo', size: 10 } } },
+          },
+        },
+      }));
+    }
+  }
+
   async function loadAndRenderGraphs() {
+    clearPulseCharts();
     const canvas   = document.getElementById('balanceChart');
     const empty    = document.getElementById('graphsEmptyState');
     const statsRow = document.getElementById('graphStatsRow');
@@ -2865,6 +2973,10 @@
       .filter(d => d.date != null && d.balance != null);
 
     if (rows.length === 0) { empty.style.display = ''; return; }
+
+    // Additional design reuses the exact filtered summaries; original chart remains independent.
+    try { renderPulseCharts(rows); }
+    catch (error) { console.error('Additional graph rendering failed:', error); clearPulseCharts(); }
 
     // Populate summary stats
     const avg  = Math.round(rows.reduce((s, r) => s + r.balance, 0) / rows.length);
