@@ -31,6 +31,9 @@ jobs:
       - name: Install Chromium browser
         run: npx playwright install chromium --with-deps
 
+      - name: Check dated body measurements
+        run: node tests/body-measurements.cjs
+
       - name: Start HTTP server
         run: python3 -m http.server 8080 &
 

@@ -668,6 +668,29 @@
     .pulse-caption { color:#758097; font-size:.74rem; line-height:1.7; padding:0 5px; }
     @media(max-width:420px) { .pulse-card { padding:20px 15px 16px; } .pulse-number { font-size:2.3rem; } .pulse-heading h2 { font-size:1.25rem; } }
     @media(prefers-reduced-motion:reduce) { .pulse-card { scroll-behavior:auto; } }
+
+    .measurements-panel { border-top:1px solid #e4e9ef; padding-top:25px; margin-top:28px; }
+    .measurements-panel h3 { font-size:1.2rem; color:#17213b; margin-bottom:6px; }
+    .measurement-hint { font-size:.81rem; color:#6b778c; line-height:1.8; margin:6px 0 16px; }
+    .measurement-form { padding:18px; border-radius:16px; background:#f4f6fc; border:1px solid #e4e8f4; }
+    .measurement-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+    .measurement-form label { display:block; font-size:.83rem; font-weight:600; color:#42516b; }
+    .measurement-form input, .measurement-form textarea, .measurement-select { width:100%; padding:10px; border:1px solid #d4dceb; border-radius:8px; font:inherit; font-size:1rem; background:white; margin-top:5px; min-width:0; }
+    .measurement-form input:focus, .measurement-form textarea:focus { outline:2px solid #afa1ec; outline-offset:1px; }
+    .measurement-actions { display:flex; gap:8px; margin-top:12px; }
+    .measurement-actions button { min-height:44px; flex:1; }
+    .measurement-status { font-size:.83rem; line-height:1.7; color:#596980; margin:10px 0; }
+    .measurement-metrics { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
+    .measurement-metric { background:#f7f8fc; border:1px solid #e9edf4; border-radius:12px; padding:12px; }
+    .measurement-metric span { display:block; font-size:.78rem; color:#6b778c; }
+    .measurement-metric strong { display:block; font-size:1.4rem; color:#5947ad; margin:4px 0; }
+    .measurement-metric small { display:block; font-size:.74rem; color:#6b778c; line-height:1.6; }
+    .measurement-chart { height:230px; position:relative; margin:15px 0; direction:ltr; }
+    .measurement-history { display:flex; flex-direction:column; gap:10px; max-height:420px; overflow:auto; margin-top:12px; }
+    .measurement-history article { border:1px solid #e3e8f1; border-radius:12px; padding:13px; }
+    .measurement-history header { background:none; box-shadow:none; padding:0; display:flex; justify-content:space-between; align-items:center; color:#253752; }
+    .measurement-history p { font-size:.82rem; color:#5e6d82; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; margin-top:6px; }
+    .measurement-edit { background:#eeebfb; color:#5947ad; border:none; padding:8px 12px; border-radius:8px; font:inherit; cursor:pointer; min-height:40px; }
   </style>
 </head>
 <body>
@@ -936,6 +959,33 @@
             </select>
           </div>
           <button class="btn-save-profile" onclick="saveProfileDetails()">שמור פרטים</button>
+        </div>
+
+        <div class="measurements-panel" id="measurementsPanel">
+          <h3>מדידות גוף</h3>
+          <p class="measurement-hint">מדידה חודשית, עם היסטוריה לפי תאריך. כל ההיקפים בס״מ. אפשר למלא רק חלק מהאזורים ולמדוד בכל תאריך שנוח לך.</p>
+          <form id="measurementForm" class="measurement-form" onsubmit="event.preventDefault(); saveBodyMeasurement();">
+            <label for="measurementDate">תאריך המדידה</label><input id="measurementDate" type="date" required />
+            <div class="measurement-grid">
+              <label for="measurement-arm">זרוע (ס״מ)<input id="measurement-arm" type="number" min="0.1" max="300" step="0.1" inputmode="decimal" placeholder="לא נמדד" /></label>
+              <label for="measurement-chest">חזה (ס״מ)<input id="measurement-chest" type="number" min="0.1" max="300" step="0.1" inputmode="decimal" placeholder="לא נמדד" /></label>
+              <label for="measurement-abdomen">בטן (ס״מ)<input id="measurement-abdomen" type="number" min="0.1" max="300" step="0.1" inputmode="decimal" placeholder="לא נמדד" /></label>
+              <label for="measurement-leg">רגל (ס״מ)<input id="measurement-leg" type="number" min="0.1" max="300" step="0.1" inputmode="decimal" placeholder="לא נמדד" /></label>
+            </div>
+            <label for="measurementNotes">הערה למדידה (לא חובה)</label><textarea id="measurementNotes" rows="2" maxlength="500" placeholder="למשל: צד ימין, באותה נקודת מדידה"></textarea>
+            <div class="measurement-actions"><button id="measurementSave" type="submit" class="btn-add">שמור מדידה</button><button type="button" class="measurement-edit" onclick="newBodyMeasurement()">מדידה חדשה</button></div>
+          </form>
+          <p class="measurement-status" id="measurementStatus" role="status" aria-live="polite"></p>
+          <button type="button" class="measurement-edit" id="measurementRetry" style="display:none" onclick="loadBodyMeasurements()">נסה לטעון שוב</button>
+          <p class="measurement-hint">להשוואה עקבית, כדאי להשתמש באותו צד ובאותה נקודת מדידה בכל פעם. בגרף הבטן ירידה תודגש בירוק ועלייה בכתום בהתאם למטרתך; בשאר האזורים השינוי מוצג ללא ציון טוב או רע.</p>
+          <div id="measurementResults" style="display:none">
+            <div class="measurement-metrics" id="measurementMetrics"></div>
+            <label for="measurementPart">גרף היקפים לפי אזור</label>
+            <select id="measurementPart" class="measurement-select" onchange="renderMeasurementChart()"><option value="abdomen_cm">בטן</option><option value="arm_cm">זרוע</option><option value="chest_cm">חזה</option><option value="leg_cm">רגל</option></select>
+            <p class="measurement-status" id="measurementChartHint"></p>
+            <div class="measurement-chart" id="measurementChartWrap"><canvas id="measurementChart" role="img" aria-label="היקפים בסנטימטרים לפי תאריך"></canvas></div>
+            <h4>היסטוריית מדידות</h4><div class="measurement-history" id="measurementHistory"></div>
+          </div>
         </div>
 
         <div class="settings-danger-zone">
@@ -1666,6 +1716,149 @@
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushReminder();
   });
+
+  // ─── Dated body measurements ──────────────────────────────────
+  const BODY_PARTS = [['arm_cm', 'זרוע'], ['chest_cm', 'חזה'], ['abdomen_cm', 'בטן'], ['leg_cm', 'רגל']];
+  let bodyMeasurements = [];
+  let bodyMeasurementsOwner = null;
+  let bodyMeasurementChart = null;
+  let measurementLoadVersion = 0;
+  let measurementSaving = false;
+
+  function measurementToday() {
+    const now = new Date();
+    return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+  }
+
+  function newBodyMeasurement(row = null) {
+    if (measurementSaving) return;
+    document.getElementById('measurementDate').value = row ? row.measured_on : measurementToday();
+    BODY_PARTS.forEach(([key]) => { document.getElementById('measurement-' + key.replace('_cm', '')).value = row?.[key] ?? ''; });
+    document.getElementById('measurementNotes').value = row?.notes || '';
+    document.getElementById('measurementStatus').textContent = row ? 'עריכת המדידה מתאריך ' + formatDateHebrew(row.measured_on) + '. תאריך אחר ישמור רשומה נוספת.' : '';
+  }
+
+  function readBodyMeasurement() {
+    const date = document.getElementById('measurementDate').value;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || isNaN(Date.parse(date)) || date > measurementToday()) throw new Error('בחרו תאריך מדידה תקין, עד היום.');
+    const row = { measured_on: date, notes: document.getElementById('measurementNotes').value.trim() };
+    for (const [key] of BODY_PARTS) {
+      const raw = document.getElementById('measurement-' + key.replace('_cm', '')).value.trim();
+      const value = raw === '' ? null : Number(raw);
+      if (value !== null && (!Number.isFinite(value) || value <= 0 || value > 300 || Math.abs(value * 10 - Math.round(value * 10)) > 0.000001)) throw new Error('הזינו היקף בין 0.1 ל־300 ס״מ, עד ספרה אחת אחרי הנקודה.');
+      row[key] = value;
+    }
+    if (BODY_PARTS.every(([key]) => row[key] === null)) throw new Error('מלאו לפחות היקף אחד כדי לשמור מדידה.');
+    return row;
+  }
+
+  async function loadBodyMeasurements() {
+    if (!currentUser || measurementSaving) return;
+    const uid = currentUser.id;
+    const version = ++measurementLoadVersion;
+    if (bodyMeasurementsOwner !== uid) {
+      bodyMeasurements = [];
+      bodyMeasurementsOwner = uid;
+      newBodyMeasurement();
+    }
+    document.getElementById('measurementDate').max = measurementToday();
+    document.getElementById('measurementStatus').textContent = 'טוען מדידות…';
+    document.getElementById('measurementRetry').style.display = 'none';
+    document.getElementById('measurementResults').style.display = 'none';
+    try {
+      const { data } = await db.from('body_measurements').select('*').eq('user_id', uid).order('measured_on', { ascending: true }).throwOnError();
+      if (currentUser?.id !== uid || version !== measurementLoadVersion) return;
+      bodyMeasurements = data || [];
+      renderBodyMeasurements();
+      document.getElementById('measurementStatus').textContent = bodyMeasurements.length ? 'נשמרו ' + bodyMeasurements.length + ' מדידות. אפשר לערוך מדידה מתוך ההיסטוריה.' : 'עדיין אין מדידות. המדידה הראשונה תהיה נקודת ההתחלה שלך.';
+    } catch (error) {
+      console.error('Measurement load failed:', error);
+      if (currentUser?.id !== uid || version !== measurementLoadVersion) return;
+      document.getElementById('measurementStatus').textContent = 'לא ניתן לטעון את המדידות. בדקו את החיבור ונסו שוב.';
+      document.getElementById('measurementRetry').style.display = '';
+    }
+  }
+
+  async function saveBodyMeasurement() {
+    if (!currentUser || measurementSaving) return;
+    const uid = currentUser.id;
+    const status = document.getElementById('measurementStatus');
+    let row;
+    try { row = readBodyMeasurement(); } catch (error) { status.textContent = error.message; return; }
+    // Confirm against the database, so another device's same-date record is not silently overwritten.
+    measurementSaving = true;
+    ++measurementLoadVersion;
+    const controls = document.querySelectorAll('#measurementForm input, #measurementForm textarea, #measurementForm button');
+    controls.forEach(control => { control.disabled = true; });
+    status.textContent = 'שומר מדידה…';
+    try {
+      const { data: existing } = await db.from('body_measurements').select('measured_on').eq('user_id', uid).eq('measured_on', row.measured_on).maybeSingle().throwOnError();
+      if (currentUser?.id !== uid) return;
+      if (existing && !confirm('כבר קיימת מדידה לתאריך הזה. להחליף אותה בערכים שבטופס?')) { status.textContent = 'המדידה הקיימת לא שונתה.'; return; }
+      let query = db.from('body_measurements');
+      const payload = { ...row, updated_at: new Date().toISOString() };
+      query = existing ? query.update(payload).eq('user_id', uid).eq('measured_on', row.measured_on) : query.insert({ ...payload, user_id: uid });
+      await query.throwOnError();
+      if (currentUser?.id !== uid) return;
+      bodyMeasurements = [...bodyMeasurements.filter(item => item.measured_on !== row.measured_on), row].sort((a, b) => a.measured_on.localeCompare(b.measured_on));
+      bodyMeasurementsOwner = uid;
+      renderBodyMeasurements();
+      status.textContent = 'המדידה נשמרה ✓ בתאריך ' + formatDateHebrew(row.measured_on);
+    } catch (error) {
+      console.error('Measurement save failed:', error);
+      if (currentUser?.id === uid) status.textContent = 'המדידה לא נשמרה. הערכים נשארו בטופס; בדקו את החיבור ונסו שוב.';
+    } finally {
+      measurementSaving = false;
+      controls.forEach(control => { control.disabled = false; });
+    }
+  }
+
+  function measurementDelta(values) {
+    if (values.length < 2) return null;
+    return Math.round((Number(values[values.length - 1]) - Number(values[values.length - 2])) * 10) / 10;
+  }
+
+  function renderBodyMeasurements() {
+    document.getElementById('measurementResults').style.display = bodyMeasurements.length ? '' : 'none';
+    const metrics = document.getElementById('measurementMetrics');
+    const history = document.getElementById('measurementHistory');
+    metrics.replaceChildren(); history.replaceChildren();
+    for (const [key, label] of BODY_PARTS) {
+      const values = bodyMeasurements.filter(row => row[key] !== null && row[key] !== undefined).map(row => row[key]);
+      const card = document.createElement('div'); card.className = 'measurement-metric';
+      const title = document.createElement('span'); title.textContent = label;
+      const value = document.createElement('strong'); value.textContent = values.length ? values[values.length - 1] + ' ס״מ' : 'טרם נמדד';
+      const change = document.createElement('small');
+      const delta = measurementDelta(values);
+      change.textContent = delta === null ? 'ממתין למדידה נוספת להשוואה' : (delta === 0 ? 'ללא שינוי' : (delta > 0 ? '+' : '') + delta + ' ס״מ') + ' לעומת המדידה הקודמת באזור הזה';
+      if (key === 'abdomen_cm' && delta !== null && delta !== 0) change.style.color = delta < 0 ? '#26734c' : '#a35a16';
+      card.append(title, value, change); metrics.appendChild(card);
+    }
+    [...bodyMeasurements].reverse().forEach(row => {
+      const item = document.createElement('article'), header = document.createElement('header'), date = document.createElement('strong'), edit = document.createElement('button');
+      date.textContent = formatDateHebrew(row.measured_on); edit.type = 'button'; edit.className = 'measurement-edit'; edit.textContent = 'ערוך';
+      edit.onclick = () => { newBodyMeasurement(row); document.getElementById('measurementForm').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+      header.append(date, edit); item.appendChild(header);
+      const details = document.createElement('p'); details.textContent = BODY_PARTS.filter(([key]) => row[key] !== null && row[key] !== undefined).map(([key, label]) => label + ': ' + row[key] + ' ס״מ').join(' · '); item.appendChild(details);
+      if (row.notes) { const note = document.createElement('p'); note.textContent = row.notes; item.appendChild(note); }
+      history.appendChild(item);
+    });
+    renderMeasurementChart();
+  }
+
+  function renderMeasurementChart() {
+    if (bodyMeasurementChart) { bodyMeasurementChart.destroy(); bodyMeasurementChart = null; }
+    const key = document.getElementById('measurementPart').value;
+    const rows = bodyMeasurements.filter(row => row[key] !== null && row[key] !== undefined);
+    document.getElementById('measurementChartWrap').style.display = rows.length ? '' : 'none';
+    document.getElementById('measurementChartHint').textContent = rows.length < 2 ? (rows.length ? 'נוספה נקודת התחלה. אחרי מדידה נוספת תוצג מגמה.' : 'אין עדיין מדידות לאזור הזה.') : 'שינוי בהיקף לפי תאריכי המדידות בפועל';
+    if (!rows.length) return;
+    const color = { arm_cm:'#7963d2', chest_cm:'#3695bd', abdomen_cm:'#2d8c72', leg_cm:'#b56caa' }[key];
+    bodyMeasurementChart = new Chart(document.getElementById('measurementChart').getContext('2d'), {
+      type: 'line', data: { labels: rows.map(row => formatDateHebrew(row.measured_on)), datasets: [{ data: rows.map(row => Number(row[key])), borderColor: color, backgroundColor: color + '15', fill: true, tension: 0.15, pointRadius: 5, pointBackgroundColor: rows.map((row, i) => key === 'abdomen_cm' && i > 0 && row[key] !== rows[i-1][key] ? (Number(row[key]) < Number(rows[i-1][key]) ? '#2d8c72' : '#c78130') : color) }] },
+      options: { responsive:true, maintainAspectRatio:false, animation:false, plugins:{ legend:{display:false}, tooltip:{rtl:true, callbacks:{label:ctx => ctx.parsed.y + ' ס״מ'}} }, scales:{ x:{ticks:{maxTicksLimit:5,font:{family:'Heebo',size:10}},grid:{display:false}}, y:{title:{display:true,text:'היקף (ס״מ)'},ticks:{font:{family:'Heebo',size:10}}} } },
+    });
+  }
 
   // ─── Profile (calorie target) ─────────────────────────────────
   let currentProfile = {};
@@ -2758,7 +2951,7 @@
     document.getElementById('tabGraphs').classList.toggle('active',   tab === 'graphs');
     document.getElementById('tabSettings').classList.toggle('active', tab === 'settings');
     if (tab === 'graphs')   loadAndRenderGraphs();
-    if (tab === 'settings') populateSettingsFields();
+    if (tab === 'settings') { populateSettingsFields(); loadBodyMeasurements(); }
   }
 
   // ─── Motivation modal ─────────────────────────────────────────
@@ -3168,6 +3361,12 @@
         showLoading();
         await loadAndShowApp();
       } else if (event === 'SIGNED_OUT') {
+        ++measurementLoadVersion;
+        bodyMeasurementsOwner = null;
+        bodyMeasurements = [];
+        if (bodyMeasurementChart) { bodyMeasurementChart.destroy(); bodyMeasurementChart = null; }
+        document.getElementById('measurementForm').reset();
+        document.getElementById('measurementResults').style.display = 'none';
         clearTimeout(reminderTimer);
         reminderState = null;
         document.getElementById('personalReminder').value = '';
