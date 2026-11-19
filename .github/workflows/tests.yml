@@ -24,6 +24,7 @@ jobs:
 
       - name: Check save errors and daily reminders
         run: |
+          node tests/consent.cjs
           node tests/save-errors.cjs
           node tests/reminder.cjs
           node tests/graphs.cjs
