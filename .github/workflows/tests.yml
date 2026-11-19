@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    # Keep the runner compatible with the Playwright browser installer.
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout code
